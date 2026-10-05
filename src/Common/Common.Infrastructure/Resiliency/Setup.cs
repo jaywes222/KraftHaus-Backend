@@ -1,6 +1,9 @@
+using System;
+using System.Net.Http;
 using Common.Application.Options;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Options;
+using Microsoft.Extensions.Http.Resilience;
 using Polly;
 
 namespace Common.Infrastructure.Resiliency;

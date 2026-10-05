@@ -5,6 +5,7 @@ namespace Common.Domain.ResultMonad;
 public class Error
 {
     public required string Key { get; init; }
+    public string? Description { get; init; }
     public string? ParameterName { get; init; }
     public object? Value { get; init; }
     public HttpStatusCode StatusCode { get; init; } = HttpStatusCode.BadRequest;
@@ -12,7 +13,13 @@ public class Error
 
     public static Error Validation(ICollection<string> errors)
     {
-        return new Error { Key = nameof(Validation), StatusCode = HttpStatusCode.BadRequest, SubErrors = errors };
+        return new Error
+        {
+            Key = nameof(Validation),
+            Description = "One or more validation errors occurred.",
+            StatusCode = HttpStatusCode.BadRequest,
+            SubErrors = errors
+        };
     }
 
     public static Error NotFound(string parameterName, object? value = null)
@@ -20,6 +27,9 @@ public class Error
         return new Error
         {
             Key = nameof(NotFound),
+            Description = value is not null
+                ? $"{parameterName} with value '{value}' was not found."
+                : $"{parameterName} was not found.",
             ParameterName = parameterName,
             Value = value,
             StatusCode = HttpStatusCode.NotFound
@@ -31,6 +41,9 @@ public class Error
         return new Error
         {
             Key = nameof(ViolatesUniqueConstraint),
+            Description = value is not null
+                ? $"{parameterName} with value '{value}' already exists."
+                : $"{parameterName} violates a unique constraint.",
             ParameterName = parameterName,
             Value = value,
             StatusCode = HttpStatusCode.Conflict
@@ -38,35 +51,32 @@ public class Error
     }
 
     /// <summary>
-    ///     Represents the situation where user is authorized to access/operate only his/her own resources but tries someone
-    ///     else's resources.
+    /// Represents the situation where user is authorized to access/operate only his/her own resources but tries someone else's resources.
     /// </summary>
-    /// <param name="parameterName"></param>
-    /// <param name="value"></param>
-    /// <returns></returns>
     public static Error NotOwned<T>(object? value = null)
     {
+        var typeName = typeof(T).Name;
         return new Error
         {
             Key = nameof(NotOwned),
-            ParameterName = typeof(T).Name,
+            Description = value is not null
+                ? $"Access denied for resource '{typeName}' with value '{value}'."
+                : $"Access denied for resource '{typeName}'.",
+            ParameterName = typeName,
             Value = value,
             StatusCode = HttpStatusCode.Forbidden
         };
     }
 
     /// <summary>
-    ///     Represents the situation where value to change is the same as before.
-    ///     For example if a product's price is 5, and if a new request try to change it to 5 again, you may use this error.
+    /// Represents the situation where value to change is the same as before.
     /// </summary>
-    /// <param name="parameterName"></param>
-    /// <param name="value"></param>
-    /// <returns></returns>
     public static Error SameValue(string parameterName, object value)
     {
         return new Error
         {
             Key = nameof(SameValue),
+            Description = $"The property '{parameterName}' already has the value '{value}'.",
             ParameterName = parameterName,
             Value = value,
             StatusCode = HttpStatusCode.BadRequest

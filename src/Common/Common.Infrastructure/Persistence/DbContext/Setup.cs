@@ -1,5 +1,4 @@
 using Common.Infrastructure.Persistence.Auditing;
-using EntityFramework.Exceptions.PostgreSQL;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.Extensions.DependencyInjection;
@@ -20,7 +19,7 @@ public static class Setup
                 .UseNpgsql(
                     sp.GetRequiredService<NpgsqlDataSource>(),
                     o => o.MigrationsHistoryTable(HistoryRepository.DefaultTableName, moduleName))
-                .UseExceptionProcessor()
+                //.UseExceptionProcessor()
                 .AddInterceptors(
                     sp.GetRequiredService<ApplyAuditingInterceptor>(),
                     sp.GetRequiredService<ApplySearchLanguageInterceptor>());

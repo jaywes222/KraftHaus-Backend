@@ -1,7 +1,6 @@
 using System.Net;
 using System.Threading.RateLimiting;
 using Common.Application.Extensions;
-using Common.Application.Localization.Resources;
 using Common.Application.Options;
 using Common.Infrastructure.Extensions;
 using Common.Infrastructure.RateLimiting;
@@ -21,13 +20,16 @@ internal static class RateLimitingMiddleware
         return services
             .AddRateLimiter(opt =>
             {
-                var customRateLimitingOptions = GetCustomRateLimitingOptions(configuration);
+                var customRateLimitingOptions =
+                    GetCustomRateLimitingOptions(configuration);
 
                 opt.OnRejected = WriteTooManyRequestsToResponse();
 
-                opt.GlobalLimiter = GlobalRateLimiter(customRateLimitingOptions);
+                opt.GlobalLimiter =
+                    GlobalRateLimiter(customRateLimitingOptions);
 
-                // allow each module register their rate limit needs in a decoupled way
+                // Allow each module to register its rate-limit needs
+                // in a decoupled way.
                 foreach (var policy in rateLimitingPoliciesPerModule.SelectMany(x => x))
                 {
                     policy(opt, customRateLimitingOptions);
@@ -35,37 +37,53 @@ internal static class RateLimitingMiddleware
             });
     }
 
-    private static CustomRateLimitingOptions GetCustomRateLimitingOptions(IConfiguration configuration)
+    private static CustomRateLimitingOptions GetCustomRateLimitingOptions(
+        IConfiguration configuration)
     {
         return configuration
                    .GetSection(nameof(CustomRateLimitingOptions))
                    .Get<CustomRateLimitingOptions>()
-               ?? throw new InvalidOperationException("Custom rate limiting options are null.");
+               ?? throw new InvalidOperationException(
+                   "Custom rate limiting options are null.");
     }
 
-    private static PartitionedRateLimiter<HttpContext> GlobalRateLimiter(CustomRateLimitingOptions rateLimitingOptions)
+    private static PartitionedRateLimiter<HttpContext> GlobalRateLimiter(
+        CustomRateLimitingOptions rateLimitingOptions)
     {
         return PartitionedRateLimiter.Create<HttpContext, string>(httpContext =>
         {
-            var partitionKey = httpContext.GetIpAddress() ?? "N/A";
+            var partitionKey =
+                httpContext.GetIpAddress() ?? "N/A";
 
-            if (IsExempt(httpContext.Request.Path, rateLimitingOptions.ExemptPathPrefixes))
+            if (IsExempt(
+                    httpContext.Request.Path,
+                    rateLimitingOptions.ExemptPathPrefixes))
             {
                 return RateLimitPartition.GetNoLimiter(partitionKey);
             }
 
-            var globalRateLimiting = rateLimitingOptions.Global ??
-                                      throw new InvalidOperationException("Global rate limiting is null.");
+            var globalRateLimiting =
+                rateLimitingOptions.Global
+                ?? throw new InvalidOperationException(
+                    "Global rate limiting is null.");
 
-            return RateLimitPartitions.FixedWindow(httpContext, "Global", partitionKey, globalRateLimiting);
+            return RateLimitPartitions.FixedWindow(
+                httpContext,
+                "Global",
+                partitionKey,
+                globalRateLimiting);
         });
     }
 
-    private static bool IsExempt(PathString path, IReadOnlyList<string> exemptPathPrefixes)
+    private static bool IsExempt(
+        PathString path,
+        IReadOnlyList<string> exemptPathPrefixes)
     {
         for (var i = 0; i < exemptPathPrefixes.Count; i++)
         {
-            if (path.StartsWithSegments(exemptPathPrefixes[i], StringComparison.OrdinalIgnoreCase))
+            if (path.StartsWithSegments(
+                    exemptPathPrefixes[i],
+                    StringComparison.OrdinalIgnoreCase))
             {
                 return true;
             }
@@ -74,42 +92,63 @@ internal static class RateLimitingMiddleware
         return false;
     }
 
-    // Shape matches ResultToResponseTransformer (Common.Application/EndpointFilters) so every 429 in the
-    // API — whether raised here by the ASP.NET rate limiter or from a Result-returning handler that maps
-    // its own throttling into the same "TooManyRequests" error key — looks identical on the wire.
-    private static Func<OnRejectedContext, CancellationToken, ValueTask> WriteTooManyRequestsToResponse()
+    private static Func<OnRejectedContext, CancellationToken, ValueTask>
+        WriteTooManyRequestsToResponse()
     {
         return (context, _) =>
         {
             var httpContext = context.HttpContext;
-            var localizer = httpContext.RequestServices.GetRequiredService<IResxLocalizer>();
-            var env = httpContext.RequestServices.GetRequiredService<IWebHostEnvironment>();
-            var problemDetailsService = httpContext.RequestServices.GetRequiredService<IProblemDetailsService>();
+
+            var env =
+                httpContext.RequestServices
+                    .GetRequiredService<IWebHostEnvironment>();
+
+            var problemDetailsService =
+                httpContext.RequestServices
+                    .GetRequiredService<IProblemDetailsService>();
 
             var problemDetails = new ProblemDetails
             {
                 Status = (int)HttpStatusCode.TooManyRequests,
-                Title = localizer.TooManyRequests,
-                Instance = $"{httpContext.Request.Method} {httpContext.Request.Path.Value}"
+
+                Title =
+                    "Too many requests. Please try again later.",
+
+                Instance =
+                    $"{httpContext.Request.Method} " +
+                    $"{httpContext.Request.Path.Value}"
             };
 
-            if (context.Lease.TryGetMetadata(MetadataName.RetryAfter, out var retryAfter))
+            if (context.Lease.TryGetMetadata(
+                    MetadataName.RetryAfter,
+                    out var retryAfter))
             {
-                problemDetails.Detail = string.Format(System.Globalization.CultureInfo.CurrentCulture,
-                    localizer.RetryAfter, retryAfter);
+                problemDetails.Detail =
+                    $"Please retry after {retryAfter}.";
             }
 
-            problemDetails.AddErrorKey(nameof(HttpStatusCode.TooManyRequests));
-            problemDetails.AddErrors([]);
-            problemDetails.Extensions.TryAdd("traceId", httpContext.TraceIdentifier);
-            problemDetails.Extensions.TryAdd("environment", env.EnvironmentName);
+            problemDetails.AddErrorKey(
+                nameof(HttpStatusCode.TooManyRequests));
 
-            httpContext.Response.StatusCode = (int)HttpStatusCode.TooManyRequests;
-            return problemDetailsService.WriteAsync(new ProblemDetailsContext
-            {
-                HttpContext = httpContext,
-                ProblemDetails = problemDetails
-            });
+            problemDetails.AddErrors([]);
+
+            problemDetails.Extensions.TryAdd(
+                "traceId",
+                httpContext.TraceIdentifier);
+
+            problemDetails.Extensions.TryAdd(
+                "environment",
+                env.EnvironmentName);
+
+            httpContext.Response.StatusCode =
+                (int)HttpStatusCode.TooManyRequests;
+
+            return problemDetailsService.WriteAsync(
+                new ProblemDetailsContext
+                {
+                    HttpContext = httpContext,
+                    ProblemDetails = problemDetails
+                });
         };
     }
 }

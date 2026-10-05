@@ -1,28 +1,26 @@
 using System.Diagnostics;
 using System.Diagnostics.Metrics;
-using System.Globalization;
 using Common.Application.Auth;
-using Common.Application.Localization.Resources;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
-using Microsoft.FeatureManagement;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.FeatureManagement;
 
 namespace Common.Application.FeatureManagement;
 
 internal sealed class RequireFeatureFilter(string featureName) : IEndpointFilter
 {
-    private static readonly Meter Meter = new("ModularMonolith.FeatureManagement");
-    private static readonly ActivitySource ActivitySource = new("ModularMonolith.FeatureManagement");
-    private static readonly Counter<long> FeatureFlagsEvaluated =
-        Meter.CreateCounter<long>("feature_flags_evaluated_total");
+    private static readonly Meter _meter = new("ModularMonolith.FeatureManagement");
+    private static readonly ActivitySource _activitySource = new("ModularMonolith.FeatureManagement");
+    private static readonly Counter<long> _featureFlagsEvaluated =
+        _meter.CreateCounter<long>("feature_flags_evaluated_total");
 
     public async ValueTask<object?> InvokeAsync(EndpointFilterInvocationContext context, EndpointFilterDelegate next)
     {
         var httpContext = context.HttpContext;
         var featureManager = httpContext.RequestServices.GetRequiredService<IFeatureManagerSnapshot>();
 
-        using var activity = ActivitySource.StartActivity("FeatureEvaluation");
+        using var activity = _activitySource.StartActivity("FeatureEvaluation");
         activity?.SetTag("feature.name", featureName);
 
         var currentUser = httpContext.RequestServices.GetService<ICurrentUser>();
@@ -34,7 +32,7 @@ internal sealed class RequireFeatureFilter(string featureName) : IEndpointFilter
         var isEnabled = await featureManager.IsEnabledAsync(featureName, httpContext.RequestAborted);
 
         activity?.SetTag("feature.enabled", isEnabled);
-        FeatureFlagsEvaluated.Add(1,
+        _featureFlagsEvaluated.Add(1,
             new KeyValuePair<string, object?>("feature.name", featureName),
             new KeyValuePair<string, object?>("feature.enabled", isEnabled));
 
@@ -43,13 +41,11 @@ internal sealed class RequireFeatureFilter(string featureName) : IEndpointFilter
             activity?.SetStatus(ActivityStatusCode.Error, "FeatureDisabled");
             activity?.SetTag("error.type", "FeatureDisabled");
 
-            var localizer = httpContext.RequestServices.GetRequiredService<IResxLocalizer>();
-
             var problemDetails = new ProblemDetails
             {
                 Status = StatusCodes.Status404NotFound,
-                Title = localizer.FeatureNotAvailableTitle,
-                Detail = string.Format(CultureInfo.CurrentCulture, localizer.FeatureNotAvailable, featureName),
+                Title = "Feature Not Available",
+                Detail = $"The requested feature '{featureName}' is currently disabled.",
                 Instance = $"{httpContext.Request.Method} {httpContext.Request.Path.Value}"
             };
 

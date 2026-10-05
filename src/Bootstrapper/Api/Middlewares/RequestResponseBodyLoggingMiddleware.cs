@@ -19,7 +19,7 @@ namespace Api.Middlewares;
 // (unbounded DoS surface) just to re-read a few KB. Capture is skipped for non-text content types.
 internal sealed class RequestResponseBodyLoggingMiddleware(
     IDiagnosticContext diagnosticContext,
-    IOptions<RequestLoggingOptions> options
+    IOptions<Common.Application.Options.RequestLoggingOptions> options
 ) : IMiddleware
 {
     // Marker written in place of a body/query value on sensitive paths. Explicit "[REDACTED]"

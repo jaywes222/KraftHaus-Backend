@@ -1,20 +1,13 @@
 using Common.Application.Extensions;
-//using Common.Application.Localization.Resources;
 using Common.Domain.ResultMonad;
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
-using Microsoft.Extensions.DependencyInjection;
-using Microsoft.Extensions.Localization;
 using AspNetResult = Microsoft.AspNetCore.Http.IResult;
 
 namespace Common.Application.EndpointFilters;
 
-// In my opinion, success cases significantly outnumber failure cases.
-// In this filters, no service needed for succes paths.
-// So we don't have to eagerly load failure case's services. (on ctor as usual)
-// That's why we're using the service provider to get the error translator and localizer if and only if failure case occur.
-internal sealed class ResultToResponseTransformer(IServiceProvider serviceProvider, IWebHostEnvironment env)
+internal sealed class ResultToResponseTransformer(IWebHostEnvironment env)
     : IEndpointFilter
 {
     public async ValueTask<object?> InvokeAsync(EndpointFilterInvocationContext context, EndpointFilterDelegate next)
@@ -40,12 +33,10 @@ internal sealed class ResultToResponseTransformer(IServiceProvider serviceProvid
             () => Results.NoContent(),
             error =>
             {
-                var localizer = serviceProvider.GetRequiredService<IStringLocalizer<ResxLocalizer>>();
-
                 var problemDetails = new ProblemDetails
                 {
                     Status = (int)error.StatusCode,
-                    Title = localizer.LocalizeFromError(error),
+                    Title = error.Description ?? error.Key,
                     Instance = $"{context.HttpContext.Request.Method} {context.HttpContext.Request.Path.Value}"
                 };
 
@@ -66,7 +57,7 @@ internal sealed class ResultToResponseTransformer(IServiceProvider serviceProvid
     }
 }
 
-internal sealed class ResultToCreatedResponseTransformer<T>(IServiceProvider serviceProvider, IWebHostEnvironment env)
+internal sealed class ResultToCreatedResponseTransformer<T>(IWebHostEnvironment env)
     : IEndpointFilter
 {
     public async ValueTask<object?> InvokeAsync(EndpointFilterInvocationContext context, EndpointFilterDelegate next)
@@ -89,12 +80,10 @@ internal sealed class ResultToCreatedResponseTransformer<T>(IServiceProvider ser
             value => Results.Created((Uri?)null, value),
             error =>
             {
-                var localizer = serviceProvider.GetRequiredService<IStringLocalizer<ResxLocalizer>>();
-
                 var problemDetails = new ProblemDetails
                 {
                     Status = (int)error.StatusCode,
-                    Title = localizer.LocalizeFromError(error),
+                    Title = error.Description ?? error.Key,
                     Instance = $"{context.HttpContext.Request.Method} {context.HttpContext.Request.Path.Value}"
                 };
 
@@ -115,7 +104,7 @@ internal sealed class ResultToCreatedResponseTransformer<T>(IServiceProvider ser
     }
 }
 
-internal sealed class ResultToResponseTransformer<T>(IServiceProvider serviceProvider, IWebHostEnvironment env)
+internal sealed class ResultToResponseTransformer<T>(IWebHostEnvironment env)
     : IEndpointFilter
 {
     public async ValueTask<object?> InvokeAsync(EndpointFilterInvocationContext context, EndpointFilterDelegate next)
@@ -138,12 +127,10 @@ internal sealed class ResultToResponseTransformer<T>(IServiceProvider servicePro
             value => Results.Ok(value),
             error =>
             {
-                var localizer = serviceProvider.GetRequiredService<IStringLocalizer<ResxLocalizer>>();
-
                 var problemDetails = new ProblemDetails
                 {
                     Status = (int)error.StatusCode,
-                    Title = localizer.LocalizeFromError(error),
+                    Title = error.Description ?? error.Key,
                     Instance = $"{context.HttpContext.Request.Method} {context.HttpContext.Request.Path.Value}"
                 };
 

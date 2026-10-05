@@ -1,7 +1,5 @@
-using System.Globalization;
 using System.Net;
 using Common.Application.Extensions;
-using Common.Application.Localization.Resources;
 using EntityFramework.Exceptions.Common;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
@@ -10,8 +8,7 @@ namespace Api.Middlewares;
 
 internal sealed partial class GlobalExceptionHandlingMiddleware(
     IProblemDetailsService problemDetailsService,
-    ILogger<GlobalExceptionHandlingMiddleware> logger,
-    IResxLocalizer localizer
+    ILogger<GlobalExceptionHandlingMiddleware> logger
 ) : IMiddleware
 {
     public async Task InvokeAsync(HttpContext context, RequestDelegate next)
@@ -26,7 +23,7 @@ internal sealed partial class GlobalExceptionHandlingMiddleware(
                 context,
                 ex,
                 (int)HttpStatusCode.Conflict,
-                localizer.DbUpdateConcurrencyException);
+                "The resource was modified by another request. Please refresh and try again.");
         }
         catch (UniqueConstraintException ex)
         {
@@ -34,7 +31,7 @@ internal sealed partial class GlobalExceptionHandlingMiddleware(
                 context,
                 ex,
                 (int)HttpStatusCode.Conflict,
-                localizer.UniqueConstraintException);
+                "A record with the same value already exists.");
         }
         catch (CannotInsertNullException ex)
         {
@@ -42,7 +39,7 @@ internal sealed partial class GlobalExceptionHandlingMiddleware(
                 context,
                 ex,
                 (int)HttpStatusCode.BadRequest,
-                localizer.CannotInsertNullException);
+                "A required value is missing.");
         }
         catch (MaxLengthExceededException ex)
         {
@@ -50,7 +47,7 @@ internal sealed partial class GlobalExceptionHandlingMiddleware(
                 context,
                 ex,
                 (int)HttpStatusCode.BadRequest,
-                localizer.MaxLengthExceededException);
+                "One or more values exceed the allowed length.");
         }
         catch (NumericOverflowException ex)
         {
@@ -58,7 +55,7 @@ internal sealed partial class GlobalExceptionHandlingMiddleware(
                 context,
                 ex,
                 (int)HttpStatusCode.BadRequest,
-                localizer.NumericOverflowException);
+                "A numeric value is outside the allowed range.");
         }
         catch (ReferenceConstraintException ex)
         {
@@ -66,16 +63,15 @@ internal sealed partial class GlobalExceptionHandlingMiddleware(
                 context,
                 ex,
                 (int)HttpStatusCode.BadRequest,
-                localizer.ReferenceConstraintException);
+                "The requested operation violates a data relationship.");
         }
-        catch (DbUpdateException
-               ex) // Should not happen because we use EntityFramework.Exceptions and ".UseExceptionProcessor()"in the DbContext setup, but just in case
+        catch (DbUpdateException ex)
         {
             await HandleExceptionAsync(
                 context,
                 ex,
                 (int)HttpStatusCode.InternalServerError,
-                localizer.InternalServerError);
+                "An unexpected database error occurred.");
         }
         catch (BadHttpRequestException ex)
         {
@@ -83,14 +79,10 @@ internal sealed partial class GlobalExceptionHandlingMiddleware(
                 context,
                 ex,
                 (int)HttpStatusCode.BadRequest,
-                localizer.BadHttpRequestException);
+                "The request was invalid.");
         }
         catch (OperationCanceledException ex)
         {
-            // Request aborted by the client mid-request. The connection is already gone, so there is nothing to write back
-            // and this is not a server fault. Logging at Error pollutes logs with phantom failures
-            // (TaskCanceledException derives from OperationCanceledException), so log at Information
-            // and return without touching the dead response.
             if (context.RequestAborted.IsCancellationRequested)
             {
                 LogRequestAborted(logger);
@@ -100,22 +92,26 @@ internal sealed partial class GlobalExceptionHandlingMiddleware(
             await HandleExceptionAsync(
                 context,
                 ex,
-                StatusCodes.Status499ClientClosedRequest, // Client Closed Request
-                localizer.ClientClosedRequest);
+                StatusCodes.Status499ClientClosedRequest,
+                "The request was cancelled.");
         }
-#pragma warning disable CA1031 // Do not catch general exception types
+#pragma warning disable CA1031
         catch (Exception ex)
         {
             await HandleExceptionAsync(
                 context,
                 ex,
                 (int)HttpStatusCode.InternalServerError,
-                localizer.InternalServerError);
+                "An unexpected error occurred.");
         }
-#pragma warning restore CA1031 // Do not catch general exception types
+#pragma warning restore CA1031
     }
 
-    private async Task HandleExceptionAsync(HttpContext context, Exception exception, int statusCode, string title)
+    private async Task HandleExceptionAsync(
+        HttpContext context,
+        Exception exception,
+        int statusCode,
+        string title)
     {
         LogError(logger, exception);
 
@@ -125,10 +121,16 @@ internal sealed partial class GlobalExceptionHandlingMiddleware(
             return;
         }
 
-        var formattedTitle = string.Format(CultureInfo.CurrentCulture, title, context.TraceIdentifier);
-        var details = new ProblemDetails { Status = statusCode, Title = formattedTitle };
+        var formattedTitle = $"{title} Trace ID: {context.TraceIdentifier}";
+
+        var details = new ProblemDetails
+        {
+            Status = statusCode,
+            Title = formattedTitle
+        };
 
         context.Response.StatusCode = statusCode;
+
         await problemDetailsService.TryWriteAsync(new ProblemDetailsContext
         {
             HttpContext = context,
@@ -139,16 +141,20 @@ internal sealed partial class GlobalExceptionHandlingMiddleware(
 
     [LoggerMessage(
         Level = LogLevel.Error,
-        Message = "Unhandled exception occured.")]
-    private static partial void LogError(ILogger logger, Exception exception);
+        Message = "Unhandled exception occurred.")]
+    private static partial void LogError(
+        ILogger logger,
+        Exception exception);
 
     [LoggerMessage(
         Level = LogLevel.Error,
         Message = "Response has already started, can't write response.")]
-    private static partial void LogCantWriteResponse(ILogger logger);
+    private static partial void LogCantWriteResponse(
+        ILogger logger);
 
     [LoggerMessage(
         Level = LogLevel.Information,
         Message = "Request aborted by client before completion.")]
-    private static partial void LogRequestAborted(ILogger logger);
+    private static partial void LogRequestAborted(
+        ILogger logger);
 }

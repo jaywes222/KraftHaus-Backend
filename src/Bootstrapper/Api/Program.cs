@@ -1,4 +1,9 @@
 // Create the builder and add initially required services.
+using Api.Infrastructure;
+using Api.Swagger;
+using Common.Application.Options;
+using Serilog;
+
 var builder = WebApplication.CreateBuilder(args);
 builder.AddConfigurations();
 Log.Logger = new LoggerConfiguration()

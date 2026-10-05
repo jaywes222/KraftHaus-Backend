@@ -1,6 +1,5 @@
 using Asp.Versioning;
 using Asp.Versioning.Builder;
-using Asp.Versioning.Conventions;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Routing;
 using Microsoft.Extensions.DependencyInjection;
@@ -11,29 +10,23 @@ public static class Setup
 {
     public static IServiceCollection AddVersioning(this IServiceCollection services)
     {
-        return services
-            .AddApiVersioning(options =>
-            {
-                options.ReportApiVersions = true;
-                options.AssumeDefaultVersionWhenUnspecified = false;
-                options.ApiVersionReader = new UrlSegmentApiVersionReader();
-            })
-            .AddApiExplorer(options =>
-            {
-                options.GroupNameFormat = "'v'VVV";
-                options.SubstituteApiVersionInUrl = true;
-                options.AssumeDefaultVersionWhenUnspecified = false;
-            })
-            .Services;
+        services.AddApiVersioning(options =>
+        {
+            options.ReportApiVersions = true;
+            options.AssumeDefaultVersionWhenUnspecified = false;
+            options.ApiVersionReader = new UrlSegmentApiVersionReader();
+        });
+
+        return services;
     }
 
     public static ApiVersionSet GetApiVersionSet(this IEndpointRouteBuilder endpoints)
     {
         return endpoints
             .NewApiVersionSet()
-            .HasApiVersion(1)
-            // .HasApiVersion(2)
-            // .HasApiVersion(3)
+            .HasApiVersion(new ApiVersion(1, 0))
+            // .HasApiVersion(new ApiVersion(2, 0))
+            // .HasApiVersion(new ApiVersion(3, 0))
             .Build();
     }
 }

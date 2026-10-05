@@ -4,6 +4,7 @@ using Common.IntegrationEvents;
 using MassTransit;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
+using ZiggyCreatures.Caching.Fusion;
 
 namespace Common.Application.EventBus;
 
