@@ -1,3 +1,4 @@
+using Common.Application.Persistence;
 using Common.Domain.ResultMonad;
 using Tenancy.Application.Abstractions;
 using Tenancy.Domain.Common;

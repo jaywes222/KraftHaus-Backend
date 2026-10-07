@@ -16,7 +16,7 @@ public sealed class StaffInvitation(StaffInvitationId id)
 
     private StaffInvitation()
         : this(new StaffInvitationId(
-            DefaultIdType.CreateVersion7()))
+            Guid.CreateVersion7()))
     {
     }
 
@@ -177,10 +177,8 @@ public sealed class StaffInvitation(StaffInvitationId id)
 
         var ownsDestination =
             Channel == InvitationChannel.Phone
-                ? user.Phone?.Value ==
-                  Destination
-                : user.Email?.Value ==
-                  Destination;
+                ? user.Phone?.Value == Destination
+                : user.Email?.Value == Destination;
 
         if (!ownsDestination)
         {

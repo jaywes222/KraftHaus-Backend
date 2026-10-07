@@ -1,8 +1,8 @@
+using Common.Application.Persistence;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 using Npgsql;
-using Tenancy.Application.Abstractions;
 using Tenancy.Infrastructure.Options;
 using Tenancy.Infrastructure.Persistence;
 

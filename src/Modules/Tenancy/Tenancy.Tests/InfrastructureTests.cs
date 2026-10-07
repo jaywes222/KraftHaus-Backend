@@ -1,3 +1,4 @@
+using Common.Application.Persistence;
 using Tenancy.Application.Abstractions;
 using Tenancy.Infrastructure.Database;
 using Xunit;

@@ -1,4 +1,5 @@
 using Common.Application.Options;
+using Common.Application.Persistence;
 using Common.Infrastructure.Persistence.Auditing;
 using Common.Infrastructure.Persistence.AuditLog;
 using Microsoft.Extensions.DependencyInjection;
@@ -9,22 +10,33 @@ namespace Common.Infrastructure.Persistence;
 
 public static class Setup
 {
-    public static IServiceCollection AddCommonPersistence(this IServiceCollection services)
+    public static IServiceCollection AddCommonPersistence(
+        this IServiceCollection services)
     {
         return services
             // Single shared NpgsqlDataSource → one bounded connection pool for the whole app.
-            // Every DbContext, the audit-log retention worker, and the postgresql health check resolve
-            // this same instance, so they share one pool (capped via "Maximum Pool Size" in the connection
-            // string) instead of each spinning up its own data source with its own 100-connection pool.
+            // Every DbContext, the audit-log retention worker, and the PostgreSQL health check
+            // resolve this same instance, so they share one pool instead of each creating
+            // its own data source and connection pool.
             .AddSingleton(sp =>
             {
-                var connectionString = sp.GetRequiredService<IOptions<DatabaseOptions>>().Value.ConnectionString;
+                var connectionString =
+                    sp.GetRequiredService<IOptions<DatabaseOptions>>()
+                        .Value
+                        .ConnectionString;
+
                 return new NpgsqlDataSourceBuilder(connectionString).Build();
             })
-            // Explicit registration required: without IAM loaded, AddAuthentication() is never called,
-            // and ASP.NET Core's implicit TimeProvider.System registration never happens.
-            // All DbContexts and interceptors depend on TimeProvider — so it must live here in Common.
+
+            // Application-wide module database registry.
+            // Individual modules register their database descriptors against this
+            // shared registry; the registry itself must only have one singleton instance.
+            .AddSingleton<IModuleDatabaseRegistry, ModuleDatabaseRegistry>()
+
+            // Explicit TimeProvider registration.
+            // Infrastructure services and EF interceptors depend on TimeProvider.
             .AddSingleton(TimeProvider.System)
+
             .AddAuditLogServices()
             .AddAuditingInterceptors()
             .AddSingleton<SeedingCompletionTracker>()

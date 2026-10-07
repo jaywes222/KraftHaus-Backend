@@ -68,6 +68,7 @@
     <ProjectReference Include="..\..\Modules\Tenancy.Infrastructure\Tenancy.Infrastructure.csproj" />
     <ProjectReference Include="..\..\Modules\Tenancy\Tenancy.Application\Tenancy.Application.csproj" />
     <ProjectReference Include="..\..\Modules\Tenancy\Tenancy.Domain\Tenancy.Domain.csproj" />
+    <ProjectReference Include="..\..\Modules\Identity\Identity.Infrastructure\Identity.Infrastructure.csproj" />
   </ItemGroup>
 
 </Project>

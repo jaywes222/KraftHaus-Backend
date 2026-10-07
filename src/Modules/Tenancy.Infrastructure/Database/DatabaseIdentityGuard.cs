@@ -1,3 +1,4 @@
+using Common.Application.Persistence;
 using Tenancy.Application.Abstractions;
 
 namespace Tenancy.Infrastructure.Database;

@@ -1,7 +1,7 @@
+using Common.Application.Persistence;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Options;
-using Tenancy.Application.Abstractions;
 using Tenancy.Infrastructure.Options;
 using Tenancy.Infrastructure.Persistence;
 
@@ -17,10 +17,12 @@ public static class TenancyDatabaseRegistration
             .BindConfiguration("TenancyDatabase")
             .ValidateOnStart();
 
+        // Required by TenantRegistry and other singleton tenancy services.
         services.AddDbContextFactory<TenancyDbContext>((sp, options) =>
         {
             var databaseOptions =
-                sp.GetRequiredService<IOptions<TenancyDatabaseOptions>>().Value;
+                sp.GetRequiredService<IOptions<TenancyDatabaseOptions>>()
+                    .Value;
 
             options.UseNpgsql(
                 databaseOptions.PlatformConnectionString,
@@ -35,7 +37,8 @@ public static class TenancyDatabaseRegistration
         services.AddDbContext<InfraDbContext>((sp, options) =>
         {
             var databaseOptions =
-                sp.GetRequiredService<IOptions<TenancyDatabaseOptions>>().Value;
+                sp.GetRequiredService<IOptions<TenancyDatabaseOptions>>()
+                    .Value;
 
             options.UseNpgsql(
                 databaseOptions.PlatformConnectionString,
@@ -47,33 +50,26 @@ public static class TenancyDatabaseRegistration
                 });
         });
 
-        services.AddSingleton<IModuleDatabaseRegistry>(_ =>
-        {
-            var registry = new ModuleDatabaseRegistry();
+        services.AddSingleton(
+            new ModuleDatabaseDescriptor(
+                "Tenancy",
+                DatabaseScope.Platform,
+                connectionString =>
+                {
+                    var options =
+                        new DbContextOptionsBuilder<TenancyDbContext>()
+                            .UseNpgsql(
+                                connectionString,
+                                npgsql =>
+                                {
+                                    npgsql.MigrationsHistoryTable(
+                                        "__ef_migrations_history",
+                                        "tenancy");
+                                })
+                            .Options;
 
-            registry.Register(
-                new ModuleDatabaseDescriptor(
-                    "Tenancy",
-                    DatabaseScope.Platform,
-                    connectionString =>
-                    {
-                        var options =
-                            new DbContextOptionsBuilder<TenancyDbContext>()
-                                .UseNpgsql(
-                                    connectionString,
-                                    npgsql =>
-                                    {
-                                        npgsql.MigrationsHistoryTable(
-                                            "__ef_migrations_history",
-                                            "tenancy");
-                                    })
-                                .Options;
-
-                        return new TenancyDbContext(options);
-                    }));
-
-            return registry;
-        });
+                    return new TenancyDbContext(options);
+                }));
 
         services.AddSingleton<IDatabaseInitializer, DatabaseInitializer>();
 
