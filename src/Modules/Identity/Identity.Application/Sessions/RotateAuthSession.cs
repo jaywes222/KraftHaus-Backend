@@ -1,4 +1,3 @@
-using System.Net;
 using Common.Domain.ResultMonad;
 using Common.Domain.TimeProvision;
 using Identity.Application.Abstractions;
@@ -42,23 +41,29 @@ public sealed class RotateAuthSessionService(
         var presentedSecretHash =
             refreshTokens.Hash(command.RefreshToken);
 
+        /*
+         * Generate a candidate replacement token.
+         *
+         * Rotate() will only use its hash when the
+         * presented token is the current generation.
+         */
         var newRefreshToken =
             refreshTokens.Generate();
 
         var newSecretHash =
             refreshTokens.Hash(newRefreshToken);
 
-        var previousGeneration =
-            session.Generation;
-
         var rotateResult = session.Rotate(
-            previousGeneration,
+            session.Generation,
             presentedSecretHash,
             newSecretHash,
             now);
 
         if (rotateResult.IsFailure)
         {
+            // Important:
+            // Rotate() may revoke the session when reuse
+            // is detected, so persist the domain change.
             await sessions.SaveAsync(
                 session,
                 cancellationToken);
@@ -76,11 +81,8 @@ public sealed class RotateAuthSessionService(
         await unitOfWork.SaveChangesAsync(
             cancellationToken);
 
-        // If the previous-generation grace period was used,
-        // Rotate() intentionally leaves the session generation
-        // unchanged. Return the presented token rather than
-        // creating another rotation from the same generation.
-        return session.Generation == previousGeneration
+        return rotateResult.Value ==
+            AuthSessionRotationOutcome.PreviousGenerationGrace
             ? (Result<RotateAuthSessionResult>)new RotateAuthSessionResult(
                 command.RefreshToken,
                 session.ExpiresAt,

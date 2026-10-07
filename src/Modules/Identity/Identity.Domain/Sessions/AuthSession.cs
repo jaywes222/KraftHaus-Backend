@@ -100,11 +100,11 @@ public sealed class AuthSession(AuthSessionId id)
         return session;
     }
 
-    public Result Rotate(
-        long presentedGeneration,
-        string presentedSecretHash,
-        string newSecretHash,
-        DateTimeOffset now)
+    public Result<AuthSessionRotationOutcome> Rotate(
+    long presentedGeneration,
+    string presentedSecretHash,
+    string newSecretHash,
+    DateTimeOffset now)
     {
         if (Status != AuthSessionStatus.Active)
         {
@@ -160,11 +160,10 @@ public sealed class AuthSession(AuthSessionId id)
                     Id,
                     Generation));
 
-            return Result.Success;
+            return AuthSessionRotationOutcome.Rotated;
         }
 
-        // A second tab may present the immediately previous
-        // refresh token while the first tab has already rotated it.
+        // Previous-generation grace.
         if (PreviousGeneration.HasValue &&
             PreviousSecretHash is not null &&
             PreviousRotatedAt.HasValue &&
@@ -177,7 +176,7 @@ public sealed class AuthSession(AuthSessionId id)
                 PreviousGeneration.Value,
                 PreviousSecretHash))
         {
-            return Result.Success;
+            return AuthSessionRotationOutcome.PreviousGenerationGrace;
         }
 
         Revoke(
