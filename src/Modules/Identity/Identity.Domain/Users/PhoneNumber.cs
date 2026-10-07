@@ -1,4 +1,3 @@
-using System.Text.RegularExpressions;
 using Common.Domain;
 using Common.Domain.ResultMonad;
 using Identity.Domain.Common;
@@ -53,7 +52,8 @@ public sealed class PhoneNumber : ValueObject
 
         var digits = value[1..];
 
-        if (!Regex.IsMatch(digits, "^[0-9]{7,15}$"))
+        if (digits.Length is < 7 or > 15 ||
+            !digits.All(char.IsDigit))
         {
             return IdentityErrors.Invalid(
                 nameof(PhoneNumber),
@@ -78,12 +78,7 @@ public sealed class PhoneNumber : ValueObject
 
     public string Masked()
     {
-        if (Value.Length <= 6)
-        {
-            return "***";
-        }
-
-        return $"{Value[..4]}***{Value[^3..]}";
+        return Value.Length <= 6 ? "***" : $"{Value[..4]}***{Value[^3..]}";
     }
 
     protected override IEnumerable<object> GetEqualityComponents()
