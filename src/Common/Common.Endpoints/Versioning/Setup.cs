@@ -15,7 +15,10 @@ public static class Setup
             options.ReportApiVersions = true;
             options.AssumeDefaultVersionWhenUnspecified = false;
             options.ApiVersionReader = new UrlSegmentApiVersionReader();
-        });
+        })
+        .AddApiExplorer();
+
+        services.AddMvc();
 
         return services;
     }
@@ -25,8 +28,6 @@ public static class Setup
         return endpoints
             .NewApiVersionSet()
             .HasApiVersion(new ApiVersion(1, 0))
-            // .HasApiVersion(new ApiVersion(2, 0))
-            // .HasApiVersion(new ApiVersion(3, 0))
             .Build();
     }
 }

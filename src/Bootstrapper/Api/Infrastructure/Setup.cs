@@ -4,6 +4,7 @@ using Api.Middlewares;
 using Common.Application.Extensions;
 using Common.Application.JsonConverters;
 using Common.Application.Options;
+using Common.Application.Search;
 using Common.Endpoints.Versioning;
 using Common.Infrastructure.Auth;
 using Common.Infrastructure.Caching;
@@ -46,7 +47,7 @@ internal static partial class Setup
                 x.ServicesStartConcurrently = true;
                 x.ServicesStopConcurrently = true;
             })
-   .AddVersioning()
+    .AddVersioning()
     .AddHttpContextAccessor()
     .AddCustomForwardedHeaders(configuration)
     .AddHttpRequestLogging()
@@ -62,6 +63,7 @@ internal static partial class Setup
     .AddCommonEventHandling(moduleAssemblies)
     .AddCommonInterModuleRequests()
     .AddCommonOptions(configuration, env)
+    .AddScoped<ISearchLanguageResolver, SearchLanguageResolver>()
     .AddCommonPersistence()
     .AddCommonFeatureManagement(configuration)
     .AddCommonAuth()
