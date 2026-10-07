@@ -5,6 +5,14 @@ namespace Identity.Application.Authorization;
 
 public interface IRoleAssignmentRepository
 {
+    Task AddAsync(
+      RoleAssignment assignment,
+      CancellationToken cancellationToken);
+
+    Task SaveAsync(
+        RoleAssignment assignment,
+        CancellationToken cancellationToken);
+
     Task<IReadOnlyList<RoleAssignment>> GetActiveForUserAsync(
         ApplicationUserId userId,
         CancellationToken cancellationToken);
