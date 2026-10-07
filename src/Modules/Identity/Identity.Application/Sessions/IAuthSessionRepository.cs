@@ -1,10 +1,7 @@
-using System;
-using System.Collections.Generic;
-using System.Text;
 using Identity.Domain.Common;
 using Identity.Domain.Sessions;
 
-namespace Identity.Application.Abstractions;
+namespace Identity.Application.Sessions;
 
 public interface IAuthSessionRepository
 {
