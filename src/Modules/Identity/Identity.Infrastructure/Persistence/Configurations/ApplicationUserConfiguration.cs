@@ -5,7 +5,7 @@ using Microsoft.EntityFrameworkCore.Metadata.Builders;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using Tenancy.Domain.Common;
 
-namespace Identity.Infrastructure.Persistence;
+namespace Identity.Infrastructure.Persistence.Configurations;
 
 public sealed class ApplicationUserConfiguration
     : IEntityTypeConfiguration<ApplicationUser>

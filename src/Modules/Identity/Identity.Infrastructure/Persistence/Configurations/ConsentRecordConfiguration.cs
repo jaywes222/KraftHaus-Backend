@@ -3,7 +3,7 @@ using Identity.Domain.Users;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Metadata.Builders;
 
-namespace Identity.Infrastructure.Persistence;
+namespace Identity.Infrastructure.Persistence.Configurations;
 
 public sealed class ConsentRecordConfiguration
     : IEntityTypeConfiguration<ConsentRecord>

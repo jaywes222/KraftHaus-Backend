@@ -1,18 +1,18 @@
 using Common.Domain.StronglyTypedIds;
 using Identity.Domain.Common;
-using Identity.Domain.Roles;
+using Identity.Domain.Invitations;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Metadata.Builders;
 
-namespace Identity.Infrastructure.Persistence;
+namespace Identity.Infrastructure.Persistence.Configurations;
 
-public sealed class RoleAssignmentConfiguration
-    : IEntityTypeConfiguration<RoleAssignment>
+public sealed class StaffInvitationConfiguration
+    : IEntityTypeConfiguration<StaffInvitation>
 {
     public void Configure(
-        EntityTypeBuilder<RoleAssignment> builder)
+        EntityTypeBuilder<StaffInvitation> builder)
     {
-        builder.ToTable("role_assignment");
+        builder.ToTable("staff_invitation");
 
         builder.HasKey(x => x.Id);
 
@@ -21,12 +21,21 @@ public sealed class RoleAssignmentConfiguration
         builder.Property(x => x.Id)
             .HasConversion(
                 IdentityEfConversions
-                    .IdConverter<RoleAssignmentId>());
+                    .IdConverter<StaffInvitationId>());
 
-        builder.Property(x => x.UserId)
+        builder.Property(x => x.InvitedByUserId)
             .HasConversion(
                 IdentityEfConversions
                     .IdConverter<ApplicationUserId>())
+            .IsRequired();
+
+        builder.Property(x => x.Channel)
+            .HasConversion<string>()
+            .HasMaxLength(32)
+            .IsRequired();
+
+        builder.Property(x => x.Destination)
+            .HasMaxLength(320)
             .IsRequired();
 
         builder.Property(x => x.Role)
@@ -46,31 +55,19 @@ public sealed class RoleAssignmentConfiguration
             .HasMaxLength(32)
             .IsRequired();
 
-        builder.Property(x => x.GrantedAt)
+        builder.Property(x => x.CreatedAt)
             .IsRequired();
+
+        builder.Property(x => x.AcceptedAt);
 
         builder.Property(x => x.RevokedAt);
 
-        /*
-         * PostgreSQL:
-         * NULLS NOT DISTINCT means two platform-style rows
-         * containing NULL ScopeId cannot duplicate each other.
-         *
-         * Only active assignments participate in the unique
-         * constraint.
-         */
         builder.HasIndex(
                 x => new
                 {
-                    x.UserId,
-                    x.Role,
-                    x.ScopeType,
-                    x.ScopeId
-                })
-            .IsUnique()
-            .HasFilter(
-                "\"Status\" = 'Active'")
-            .AreNullsDistinct(false);
+                    x.Destination,
+                    x.Status
+                });
 
         builder.Property(x => x.Version)
             .HasColumnName("aggregate_version")

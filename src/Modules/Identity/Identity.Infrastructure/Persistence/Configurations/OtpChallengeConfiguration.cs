@@ -1,18 +1,17 @@
-using Common.Domain.StronglyTypedIds;
 using Identity.Domain.Common;
-using Identity.Domain.Invitations;
+using Identity.Domain.Otp;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Metadata.Builders;
 
-namespace Identity.Infrastructure.Persistence;
+namespace Identity.Infrastructure.Persistence.Configurations;
 
-public sealed class StaffInvitationConfiguration
-    : IEntityTypeConfiguration<StaffInvitation>
+public sealed class OtpChallengeConfiguration
+    : IEntityTypeConfiguration<OtpChallenge>
 {
     public void Configure(
-        EntityTypeBuilder<StaffInvitation> builder)
+        EntityTypeBuilder<OtpChallenge> builder)
     {
-        builder.ToTable("staff_invitation");
+        builder.ToTable("otp_challenge");
 
         builder.HasKey(x => x.Id);
 
@@ -21,13 +20,7 @@ public sealed class StaffInvitationConfiguration
         builder.Property(x => x.Id)
             .HasConversion(
                 IdentityEfConversions
-                    .IdConverter<StaffInvitationId>());
-
-        builder.Property(x => x.InvitedByUserId)
-            .HasConversion(
-                IdentityEfConversions
-                    .IdConverter<ApplicationUserId>())
-            .IsRequired();
+                    .IdConverter<OtpChallengeId>());
 
         builder.Property(x => x.Channel)
             .HasConversion<string>()
@@ -38,36 +31,42 @@ public sealed class StaffInvitationConfiguration
             .HasMaxLength(320)
             .IsRequired();
 
-        builder.Property(x => x.Role)
+        builder.Property(x => x.Purpose)
             .HasConversion<string>()
             .HasMaxLength(32)
             .IsRequired();
-
-        builder.Property(x => x.ScopeType)
-            .HasConversion<string>()
-            .HasMaxLength(32)
-            .IsRequired();
-
-        builder.Property(x => x.ScopeId);
 
         builder.Property(x => x.Status)
             .HasConversion<string>()
             .HasMaxLength(32)
             .IsRequired();
 
-        builder.Property(x => x.CreatedAt)
+        builder.Property(x => x.CodeHash)
+            .HasMaxLength(128)
             .IsRequired();
 
-        builder.Property(x => x.AcceptedAt);
+        builder.Property(x => x.IssuedAt)
+            .IsRequired();
 
-        builder.Property(x => x.RevokedAt);
+        builder.Property(x => x.ExpiresAt)
+            .IsRequired();
+
+        builder.Property(x => x.AttemptCount)
+            .IsRequired();
+
+        builder.Property(x => x.VerifiedAt);
 
         builder.HasIndex(
                 x => new
                 {
+                    x.Channel,
                     x.Destination,
-                    x.Status
-                });
+                    x.Purpose,
+                    x.IssuedAt
+                })
+            .IsDescending(false, false, false, true);
+
+        builder.HasIndex(x => x.ExpiresAt);
 
         builder.Property(x => x.Version)
             .HasColumnName("aggregate_version")

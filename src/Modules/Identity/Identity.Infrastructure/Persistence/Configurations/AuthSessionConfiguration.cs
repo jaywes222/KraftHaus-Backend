@@ -4,7 +4,7 @@ using Identity.Domain.Sessions;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Metadata.Builders;
 
-namespace Identity.Infrastructure.Persistence;
+namespace Identity.Infrastructure.Persistence.Configurations;
 
 public sealed class AuthSessionConfiguration
     : IEntityTypeConfiguration<AuthSession>
