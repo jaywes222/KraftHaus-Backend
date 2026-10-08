@@ -45,7 +45,7 @@ public void InitialTenancyMigrationIsCheckedIn()
             "Tenancy.Infrastructure",
             "Persistence",
             "Migrations",
-            "20261007020801_InitialTenancy.cs");
+            "20261007023635_InitialTenancy.cs");
 
         Assert.True(File.Exists(migration));
     }

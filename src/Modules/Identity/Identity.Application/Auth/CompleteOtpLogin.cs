@@ -75,10 +75,12 @@ public sealed class CompleteOtpLoginService(
                 command.ChallengeId);
         }
 
-        var now = time.GetUtcNow();
+        var now =
+            time.GetUtcNow();
 
         var codeHash =
-            otpHasher.Hash(command.Code);
+            otpHasher.Hash(
+                command.Code);
 
         var verifyResult =
             challenge.Verify(
@@ -112,7 +114,8 @@ public sealed class CompleteOtpLoginService(
                 challenge,
                 cancellationToken);
 
-        var registered = false;
+        var registered =
+            false;
 
         if (user is null)
         {
@@ -188,13 +191,15 @@ public sealed class CompleteOtpLoginService(
                 return registrationResult.Error!;
             }
 
-            user = registrationResult.Value!;
+            user =
+                registrationResult.Value!;
 
             await users.AddAsync(
                 user,
                 cancellationToken);
 
-            registered = true;
+            registered =
+                true;
         }
         else
         {
@@ -225,19 +230,29 @@ public sealed class CompleteOtpLoginService(
                 cancellationToken);
         }
 
-        var refreshToken =
-            refreshTokens.Generate();
+        /*
+         * Refresh-token secret is generated independently from
+         * the public token metadata.
+         *
+         * Only the secret hash is persisted in AuthSession.
+         */
+        var refreshSecret =
+            refreshTokens.GenerateSecret();
 
-        var refreshTokenHash =
-            refreshTokens.Hash(refreshToken);
+        var refreshSecretHash =
+            refreshTokens.HashSecret(
+                refreshSecret);
+
+        var sessionId =
+            new AuthSessionId(
+                Guid.CreateVersion7());
 
         var sessionResult =
             AuthSession.Start(
-                new AuthSessionId(
-                    Guid.CreateVersion7()),
+                sessionId,
                 user.Id,
                 command.DeviceId,
-                refreshTokenHash,
+                refreshSecretHash,
                 now);
 
         if (sessionResult.IsFailure)
@@ -247,6 +262,21 @@ public sealed class CompleteOtpLoginService(
 
         var session =
             sessionResult.Value!;
+
+        /*
+         * The public refresh token contains:
+         *
+         * session id
+         * generation
+         * secret
+         *
+         * AuthSession stores only the secret hash.
+         */
+        var refreshToken =
+            refreshTokens.Create(
+                session.Id,
+                session.Generation,
+                refreshSecret);
 
         await challenges.SaveAsync(
             challenge,

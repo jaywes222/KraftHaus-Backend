@@ -25,9 +25,36 @@ public sealed class RotateAuthSessionService(
         RotateAuthSessionCommand command,
         CancellationToken cancellationToken)
     {
-        var session = await sessions.FindAsync(
-            command.SessionId,
-            cancellationToken);
+        if (!refreshTokens.TryParse(
+                command.RefreshToken,
+                out var token))
+        {
+            return new Error
+            {
+                Key = "Identity.InvalidRefreshToken",
+                Description =
+                    "The refresh token is invalid.",
+                StatusCode =
+                    System.Net.HttpStatusCode.Unauthorized
+            };
+        }
+
+        if (token.SessionId != command.SessionId)
+        {
+            return new Error
+            {
+                Key = "Identity.RefreshTokenSessionMismatch",
+                Description =
+                    "The refresh token does not belong to the requested session.",
+                StatusCode =
+                    System.Net.HttpStatusCode.Unauthorized
+            };
+        }
+
+        var session =
+            await sessions.FindAsync(
+                token.SessionId,
+                cancellationToken);
 
         if (session is null)
         {
@@ -36,34 +63,26 @@ public sealed class RotateAuthSessionService(
                 command.SessionId);
         }
 
-        var now = time.GetUtcNow();
+        var now =
+            time.GetUtcNow();
 
-        var presentedSecretHash =
-            refreshTokens.Hash(command.RefreshToken);
-
-        /*
-         * Generate a candidate replacement token.
-         *
-         * Rotate() will only use its hash when the
-         * presented token is the current generation.
-         */
-        var newRefreshToken =
-            refreshTokens.Generate();
+        var newSecret =
+            refreshTokens.GenerateSecret();
 
         var newSecretHash =
-            refreshTokens.Hash(newRefreshToken);
+            refreshTokens.HashSecret(
+                newSecret);
 
-        var rotateResult = session.Rotate(
-            session.Generation,
-            presentedSecretHash,
-            newSecretHash,
-            now);
+        var rotateResult =
+            session.Rotate(
+                token.Generation,
+                refreshTokens.HashSecret(
+                    token.Secret),
+                newSecretHash,
+                now);
 
         if (rotateResult.IsFailure)
         {
-            // Important:
-            // Rotate() may revoke the session when reuse
-            // is detected, so persist the domain change.
             await sessions.SaveAsync(
                 session,
                 cancellationToken);
@@ -81,14 +100,17 @@ public sealed class RotateAuthSessionService(
         await unitOfWork.SaveChangesAsync(
             cancellationToken);
 
-        return rotateResult.Value ==
+        var returnedRefreshToken =
+            rotateResult.Value ==
             AuthSessionRotationOutcome.PreviousGenerationGrace
-            ? (Result<RotateAuthSessionResult>)new RotateAuthSessionResult(
-                command.RefreshToken,
-                session.ExpiresAt,
-                session.Generation)
-            : (Result<RotateAuthSessionResult>)new RotateAuthSessionResult(
-            newRefreshToken,
+                ? command.RefreshToken
+                : refreshTokens.Create(
+                    session.Id,
+                    session.Generation,
+                    newSecret);
+
+        return new RotateAuthSessionResult(
+            returnedRefreshToken,
             session.ExpiresAt,
             session.Generation);
     }

@@ -26,9 +26,35 @@ public sealed class RefreshAuthSessionService(
         RefreshAuthSessionCommand command,
         CancellationToken cancellationToken)
     {
+        if (!refreshTokens.TryParse(
+                command.RefreshToken,
+                out var token))
+        {
+            return new Error
+            {
+                Key = "Identity.InvalidRefreshToken",
+                Description =
+                    "The refresh token is invalid.",
+                StatusCode =
+                    System.Net.HttpStatusCode.Unauthorized
+            };
+        }
+
+        if (token.SessionId != command.SessionId)
+        {
+            return new Error
+            {
+                Key = "Identity.RefreshTokenSessionMismatch",
+                Description =
+                    "The refresh token does not belong to the requested session.",
+                StatusCode =
+                    System.Net.HttpStatusCode.Unauthorized
+            };
+        }
+
         var session =
             await sessions.FindAsync(
-                command.SessionId,
+                token.SessionId,
                 cancellationToken);
 
         if (session is null)
@@ -38,24 +64,21 @@ public sealed class RefreshAuthSessionService(
                 command.SessionId);
         }
 
-        var now = time.GetUtcNow();
+        var now =
+            time.GetUtcNow();
 
-        var presentedSecretHash =
-            refreshTokens.Hash(command.RefreshToken);
-
-        var newRefreshToken =
-            refreshTokens.Generate();
+        var newSecret =
+            refreshTokens.GenerateSecret();
 
         var newSecretHash =
-            refreshTokens.Hash(newRefreshToken);
-
-        var previousGeneration =
-            session.Generation;
+            refreshTokens.HashSecret(
+                newSecret);
 
         var rotateResult =
             session.Rotate(
-                previousGeneration,
-                presentedSecretHash,
+                token.Generation,
+                refreshTokens.HashSecret(
+                    token.Secret),
                 newSecretHash,
                 now);
 
@@ -78,17 +101,14 @@ public sealed class RefreshAuthSessionService(
         await unitOfWork.SaveChangesAsync(
             cancellationToken);
 
-        /*
-         * AuthSession.Rotate() accepts the previous generation
-         * during the short previous-token grace period.
-         *
-         * In that case the domain does not advance Generation,
-         * so do not issue another token from the same generation.
-         */
         var returnedRefreshToken =
-            session.Generation == previousGeneration
+            rotateResult.Value ==
+            AuthSessionRotationOutcome.PreviousGenerationGrace
                 ? command.RefreshToken
-                : newRefreshToken;
+                : refreshTokens.Create(
+                    session.Id,
+                    session.Generation,
+                    newSecret);
 
         var accessToken =
             await accessTokens.IssueAccessTokenAsync(

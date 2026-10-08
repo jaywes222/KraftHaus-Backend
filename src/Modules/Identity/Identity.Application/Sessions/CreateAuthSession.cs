@@ -28,25 +28,37 @@ public sealed class CreateAuthSessionService(
     {
         var now = time.GetUtcNow();
 
-        var refreshToken =
-            refreshTokens.Generate();
+        var sessionId =
+            new AuthSessionId(
+                Guid.CreateVersion7());
 
-        var refreshTokenHash =
-            refreshTokens.Hash(refreshToken);
+        var secret =
+            refreshTokens.GenerateSecret();
 
-        var sessionResult = AuthSession.Start(
-            new AuthSessionId(Guid.CreateVersion7()),
-            command.UserId,
-            command.DeviceId,
-            refreshTokenHash,
-            now);
+        var secretHash =
+            refreshTokens.HashSecret(secret);
+
+        var sessionResult =
+            AuthSession.Start(
+                sessionId,
+                command.UserId,
+                command.DeviceId,
+                secretHash,
+                now);
 
         if (sessionResult.IsFailure)
         {
             return sessionResult.Error!;
         }
 
-        var session = sessionResult.Value!;
+        var session =
+            sessionResult.Value!;
+
+        var refreshToken =
+            refreshTokens.Create(
+                session.Id,
+                session.Generation,
+                secret);
 
         await sessions.AddAsync(
             session,

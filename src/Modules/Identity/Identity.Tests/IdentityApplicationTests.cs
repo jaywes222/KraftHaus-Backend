@@ -1,4 +1,3 @@
-using System.Reflection;
 using Common.Application;
 using Common.Domain.ResultMonad;
 using Identity.Application.Abstractions;
@@ -7,10 +6,7 @@ using Identity.Application.Sessions;
 using Identity.Domain.Common;
 using Identity.Domain.Otp;
 using Identity.Domain.Sessions;
-using Microsoft.VisualBasic;
 using Xunit;
-using static System.Net.Mime.MediaTypeNames;
-using static System.Runtime.InteropServices.JavaScript.JSType;
 
 namespace Identity.Tests;
 
@@ -134,29 +130,152 @@ public sealed class IdentityApplicationTests
             CancellationToken.None);
 
         Assert.True(result.IsFailure);
+
         Assert.Equal(
             "Identity.OtpResendTooSoon",
             result.Error!.Key);
 
-        Assert.Equal(0, sender.Calls);
-        Assert.Equal(0, unitOfWork.SaveCount);
+        Assert.Equal(
+            0,
+            sender.Calls);
+
+        Assert.Equal(
+            0,
+            unitOfWork.SaveCount);
     }
 
     [Fact]
-    public void RefreshTokenServiceGeneratesUrlSafeTokenAndHashesDeterministically()
+    public void RefreshTokenServiceGeneratesSecretAndHashesDeterministically()
     {
         var service = new RefreshTokenService();
 
-        var token = service.Generate();
-        var hash = service.Hash(token);
+        var secret =
+            service.GenerateSecret();
 
-        Assert.NotEmpty(token);
-        Assert.DoesNotContain("=", token, StringComparison.Ordinal);
-        Assert.DoesNotContain("+", token, StringComparison.Ordinal);
-        Assert.DoesNotContain("/", token, StringComparison.Ordinal);
-        Assert.Equal(64, hash.Length);
-        Assert.True(service.Verify(token, hash));
-        Assert.False(service.Verify(token + "x", hash));
+        var hash =
+            service.HashSecret(secret);
+
+        Assert.NotEmpty(secret);
+
+        Assert.DoesNotContain(
+            "=",
+            secret,
+            StringComparison.Ordinal);
+
+        Assert.DoesNotContain(
+            "+",
+            secret,
+            StringComparison.Ordinal);
+
+        Assert.DoesNotContain(
+            "/",
+            secret,
+            StringComparison.Ordinal);
+
+        Assert.Equal(
+            64,
+            hash.Length);
+
+        Assert.True(
+            service.VerifySecret(
+                secret,
+                hash));
+
+        Assert.False(
+            service.VerifySecret(
+                secret + "x",
+                hash));
+    }
+
+    [Fact]
+    public void RefreshTokenServiceCreatesAndParsesStructuredToken()
+    {
+        var service =
+            new RefreshTokenService();
+
+        var sessionId =
+            new AuthSessionId(
+                Guid.CreateVersion7());
+
+        var secret =
+            service.GenerateSecret();
+
+        var token =
+            service.Create(
+                sessionId,
+                7,
+                secret);
+
+        var parsed =
+            service.TryParse(
+                token,
+                out var parts);
+
+        Assert.True(parsed);
+
+        Assert.Equal(
+            sessionId,
+            parts.SessionId);
+
+        Assert.Equal(
+            7,
+            parts.Generation);
+
+        Assert.Equal(
+            secret,
+            parts.Secret);
+    }
+
+    [Theory]
+    [InlineData("")]
+    [InlineData("abc")]
+    [InlineData("abc.def")]
+    [InlineData("abc.def.ghi.jkl")]
+    [InlineData("not-a-guid.1.secret")]
+    [InlineData(
+        "00000000-0000-0000-0000-000000000000.zero.secret")]
+    public void RefreshTokenServiceRejectsMalformedTokens(
+        string token)
+    {
+        var service =
+            new RefreshTokenService();
+
+        Assert.False(
+            service.TryParse(
+                token,
+                out _));
+    }
+
+    [Fact]
+    public void RefreshTokenHashIsIndependentOfTokenMetadata()
+    {
+        var service =
+            new RefreshTokenService();
+
+        var secret =
+            service.GenerateSecret();
+
+        var tokenA =
+            service.Create(
+                new AuthSessionId(
+                    Guid.CreateVersion7()),
+                1,
+                secret);
+
+        var tokenB =
+            service.Create(
+                new AuthSessionId(
+                    Guid.CreateVersion7()),
+                99,
+                secret);
+
+        Assert.NotEqual(
+            tokenA,
+            tokenB);
+
+        Assert.Equal(
+            service.HashSecret(secret),
+            service.HashSecret(secret));
     }
 
     [Fact]
@@ -170,40 +289,53 @@ public sealed class IdentityApplicationTests
             "hash-1",
             _clock.GetUtcNow());
 
-        Assert.False(sessionResult.IsFailure);
+        Assert.False(
+            sessionResult.IsFailure);
 
-        var session = sessionResult.Value;
+        var session =
+            sessionResult.Value;
 
         Assert.NotNull(session);
 
-        _clock.Advance(TimeSpan.FromMinutes(1));
+        _clock.Advance(
+            TimeSpan.FromMinutes(1));
 
-        var rotationResult = session.Rotate(
-            1,
-            "hash-1",
-            "hash-2",
-            _clock.GetUtcNow());
+        var rotationResult =
+            session.Rotate(
+                1,
+                "hash-1",
+                "hash-2",
+                _clock.GetUtcNow());
 
-        Assert.False(rotationResult.IsFailure);
+        Assert.False(
+            rotationResult.IsFailure);
 
-        var sessions = new FakeSessions(session);
-        var unitOfWork = new RecordingUnitOfWork();
+        var sessions =
+            new FakeSessions(session);
 
-        _clock.Advance(TimeSpan.FromMinutes(1));
+        var unitOfWork =
+            new RecordingUnitOfWork();
 
-        var service = new RotateAuthSessionService(
-            sessions,
-            new FixedRefreshTokens(),
-            unitOfWork,
-            _clock);
+        _clock.Advance(
+            TimeSpan.FromMinutes(1));
 
-        var result = await service.ExecuteAsync(
-            new RotateAuthSessionCommand(
-                session.Id,
-                "old-token"),
-            CancellationToken.None);
+        var service =
+            new RotateAuthSessionService(
+                sessions,
+                new FixedRefreshTokens(session.Id),
+                unitOfWork,
+                _clock);
 
-        Assert.True(result.IsFailure);
+        var result =
+            await service.ExecuteAsync(
+                new RotateAuthSessionCommand(
+                    session.Id,
+                    "old-token"),
+                CancellationToken.None);
+
+        Assert.True(
+            result.IsFailure);
+
         Assert.Equal(
             "Identity.SessionReuseDetected",
             result.Error!.Key);
@@ -221,23 +353,28 @@ public sealed class IdentityApplicationTests
         DateTimeOffset initialUtc)
         : TimeProvider
     {
-        private DateTimeOffset _utcNow = initialUtc;
+        private DateTimeOffset _utcNow =
+            initialUtc;
 
         public override DateTimeOffset GetUtcNow()
         {
             return _utcNow;
         }
 
-        public void Advance(TimeSpan duration)
+        public void Advance(
+            TimeSpan duration)
         {
-            _utcNow = _utcNow.Add(duration);
+            _utcNow =
+                _utcNow.Add(duration);
         }
     }
 
     private sealed class FixedCodeGenerator(
-        string code) : IOtpCodeGenerator
+        string code)
+        : IOtpCodeGenerator
     {
-        private readonly string _code = code;
+        private readonly string _code =
+            code;
 
         public string Generate()
         {
@@ -245,17 +382,24 @@ public sealed class IdentityApplicationTests
         }
     }
 
-    private sealed class FixedCodeHasher : IOtpCodeHasher
+    private sealed class FixedCodeHasher
+        : IOtpCodeHasher
     {
-        public string Hash(string code)
+        public string Hash(
+            string code)
         {
             return code;
         }
     }
 
-    private sealed class RecordingUnitOfWork : IIdentityUnitOfWork
+    private sealed class RecordingUnitOfWork
+        : IIdentityUnitOfWork
     {
-        public int SaveCount { get; private set; }
+        public int SaveCount
+        {
+            get;
+            private set;
+        }
 
         public Task SaveChangesAsync(
             CancellationToken cancellationToken)
@@ -266,34 +410,50 @@ public sealed class IdentityApplicationTests
         }
     }
 
-    private sealed class FakeOtpChallenges : IOtpChallengeRepository
+    private sealed class FakeOtpChallenges
+        : IOtpChallengeRepository
     {
-        public OtpChallenge? Pending { get; set; }
-
-        public OtpChallenge? LastAdded { get; private set; }
-
-        public Task<OtpChallenge?> FindLatestPendingAsync(
-            OtpChannel channel,
-            string destination,
-            OtpPurpose purpose,
-            CancellationToken cancellationToken)
+        public OtpChallenge? Pending
         {
-            return Task.FromResult(Pending);
+            get;
+            set;
         }
 
-        public Task<OtpChallenge?> FindAsync(
-            OtpChallengeId challengeId,
-            CancellationToken cancellationToken)
+        public OtpChallenge? LastAdded
         {
-            return Task.FromResult<OtpChallenge?>(LastAdded);
+            get;
+            private set;
+        }
+
+        public Task<OtpChallenge?>
+            FindLatestPendingAsync(
+                OtpChannel channel,
+                string destination,
+                OtpPurpose purpose,
+                CancellationToken cancellationToken)
+        {
+            return Task.FromResult(
+                Pending);
+        }
+
+        public Task<OtpChallenge?>
+            FindAsync(
+                OtpChallengeId challengeId,
+                CancellationToken cancellationToken)
+        {
+            return Task.FromResult<OtpChallenge?>(
+                LastAdded);
         }
 
         public Task AddAsync(
             OtpChallenge challenge,
             CancellationToken cancellationToken)
         {
-            LastAdded = challenge;
-            Pending = challenge;
+            LastAdded =
+                challenge;
+
+            Pending =
+                challenge;
 
             return Task.CompletedTask;
         }
@@ -307,17 +467,36 @@ public sealed class IdentityApplicationTests
     }
 
     private sealed class RecordingOtpSender(
-        FakeOtpChallenges challenges) : IOtpSender
+        FakeOtpChallenges challenges)
+        : IOtpSender
     {
-        private readonly FakeOtpChallenges _challenges = challenges;
+        private readonly FakeOtpChallenges
+            _challenges =
+                challenges;
 
-        public int Calls { get; private set; }
+        public int Calls
+        {
+            get;
+            private set;
+        }
 
-        public string? Destination { get; private set; }
+        public string? Destination
+        {
+            get;
+            private set;
+        }
 
-        public string? Code { get; private set; }
+        public string? Code
+        {
+            get;
+            private set;
+        }
 
-        public bool SaveWasCalledBeforeSend { get; private set; }
+        public bool SaveWasCalledBeforeSend
+        {
+            get;
+            private set;
+        }
 
         public Task SendAsync(
             OtpChannel channel,
@@ -327,8 +506,13 @@ public sealed class IdentityApplicationTests
             CancellationToken cancellationToken)
         {
             Calls++;
-            Destination = destination;
-            Code = code;
+
+            Destination =
+                destination;
+
+            Code =
+                code;
+
             SaveWasCalledBeforeSend =
                 _challenges.LastAdded is not null;
 
@@ -337,13 +521,17 @@ public sealed class IdentityApplicationTests
     }
 
     private sealed class FakeSessions(
-        AuthSession session) : IAuthSessionRepository
+        AuthSession session)
+        : IAuthSessionRepository
     {
-        private readonly AuthSession _session = session;
+        private readonly AuthSession
+            _session =
+                session;
 
-        public Task<AuthSession?> FindAsync(
-            AuthSessionId id,
-            CancellationToken cancellationToken)
+        public Task<AuthSession?>
+            FindAsync(
+                AuthSessionId id,
+                CancellationToken cancellationToken)
         {
             return Task.FromResult<AuthSession?>(
                 _session.Id == id
@@ -366,28 +554,73 @@ public sealed class IdentityApplicationTests
         }
     }
 
-    private sealed class FixedRefreshTokens : IRefreshTokenService
+    private sealed class FixedRefreshTokens(
+        AuthSessionId sessionId)
+        : IRefreshTokenService
     {
-        public string Generate()
+        private readonly AuthSessionId
+            _sessionId =
+                sessionId;
+
+        public string GenerateSecret()
         {
-            return "new-token";
+            return "new-secret";
         }
 
-        public string Hash(string refreshToken)
+        public string Create(
+            AuthSessionId sessionId,
+            long generation,
+            string secret)
         {
-            return refreshToken switch
+            return string.Join(
+                '.',
+                sessionId.Value,
+                generation,
+                secret);
+        }
+
+        public bool TryParse(
+            string refreshToken,
+            out RefreshTokenParts parts)
+        {
+            parts = default;
+
+            if (refreshToken != "old-token")
             {
-                "new-token" => "hash-new",
-                "current-token" => "hash-2",
-                _ => "old-hash"
+                return false;
+            }
+
+            parts =
+                new RefreshTokenParts(
+                    _sessionId,
+                    1,
+                    "old-secret");
+
+            return true;
+        }
+
+        public string HashSecret(
+            string secret)
+        {
+            return secret switch
+            {
+                "old-secret" =>
+                    "hash-1",
+
+                "new-secret" =>
+                    "hash-new",
+
+                _ =>
+                    "unknown-hash"
             };
         }
 
-        public bool Verify(
-            string refreshToken,
+        public bool VerifySecret(
+            string secret,
             string expectedHash)
         {
-            return Hash(refreshToken) == expectedHash;
+            return HashSecret(secret)
+                == expectedHash;
         }
     }
 }
