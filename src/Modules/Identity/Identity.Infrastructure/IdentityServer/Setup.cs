@@ -1,5 +1,6 @@
 using Duende.IdentityServer;
 using Duende.IdentityServer.Configuration;
+using Identity.Infrastructure.Options;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.IdentityModel.Tokens;
@@ -29,6 +30,40 @@ public static class IdentityServerSetup
             .Validate(
                 options => options.PostLogoutRedirectUris.Count > 0,
                 "At least one IdentityServer post-logout redirect URI must be configured.")
+            .ValidateOnStart();
+
+        services
+            .AddOptions<KraftHausIdentityServerOptions>()
+            .BindConfiguration(
+                KraftHausIdentityServerOptions.SectionName)
+            .Validate(
+                options =>
+                    !string.IsNullOrWhiteSpace(options.IssuerUri),
+                "IdentityServer IssuerUri must be configured.")
+            .Validate(
+                options =>
+                    Uri.TryCreate(
+                        options.IssuerUri,
+                        UriKind.Absolute,
+                        out var uri) &&
+                    (
+                        uri.Scheme == Uri.UriSchemeHttp ||
+                        uri.Scheme == Uri.UriSchemeHttps
+                    ),
+                "IdentityServer IssuerUri must be an absolute HTTP or HTTPS URL.")
+            .Validate(
+                options =>
+                    !string.IsNullOrWhiteSpace(options.ApiScope),
+                "IdentityServer ApiScope must be configured.")
+            .Validate(
+                options =>
+                    !string.IsNullOrWhiteSpace(options.ApiAudience),
+                "IdentityServer ApiAudience must be configured.")
+            .Validate(
+                options =>
+                    options.AccessTokenLifetimeSeconds > 0 &&
+                    options.AccessTokenLifetimeSeconds <= 3600,
+                "IdentityServer AccessTokenLifetimeSeconds must be between 1 and 3600 seconds.")
             .ValidateOnStart();
 
         services

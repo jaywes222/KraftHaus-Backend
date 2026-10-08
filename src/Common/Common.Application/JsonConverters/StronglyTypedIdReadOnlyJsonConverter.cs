@@ -4,98 +4,74 @@ using Common.Domain.StronglyTypedIds;
 
 namespace Common.Application.JsonConverters;
 
-public class StronglyTypedIdReadOnlyJsonConverter<T> : JsonConverter<T>
-    where T : IStronglyTypedId, new()
+public sealed class StronglyTypedIdReadOnlyJsonConverter
+    : JsonConverter<IStronglyTypedId>
 {
     public override bool CanConvert(Type typeToConvert)
     {
         return typeof(IStronglyTypedId).IsAssignableFrom(typeToConvert);
     }
 
-    public override T? Read(ref Utf8JsonReader reader, Type typeToConvert, JsonSerializerOptions options)
+    public override IStronglyTypedId? Read(
+        ref Utf8JsonReader reader,
+        Type typeToConvert,
+        JsonSerializerOptions options)
     {
-        var value = reader.GetString() ?? string.Empty;
-
-        DefaultIdType guid;
-        try
+        if (reader.TokenType == JsonTokenType.Null)
         {
-            guid = DefaultIdType.Parse(value);
-        }
-        catch (Exception ex)
-        {
-            throw new JsonException($"Error parsing the value '{value}' for type {typeToConvert}.", ex);
+            return null;
         }
 
-        return new T { Value = guid };
-    }
+        if (reader.TokenType != JsonTokenType.String)
+        {
+            throw new JsonException(
+                $"Expected a string value for strongly typed ID '{typeToConvert.Name}'.");
+        }
 
-    public override void Write(Utf8JsonWriter writer, T value, JsonSerializerOptions options)
-    {
-        throw new NotImplementedException(
-            "Direct serialization is not supported, use [JsonConverter(typeof(StronglyTypedIdWriteOnlyJsonConverter))]");
-    }
-}
-
-public class StronglyTypedIdReadOnlyJsonConverter : JsonConverter<IStronglyTypedId>
-{
-    /// <summary>
-    ///     The converter will only handle types implementing IStronglyTypedId whose names end with "Id".
-    /// </summary>
-    public override bool CanConvert(Type typeToConvert)
-    {
-        return typeof(IStronglyTypedId).IsAssignableFrom(typeToConvert);
-    }
-
-    /// <summary>
-    ///     Reads a JSON string and converts it into the appropriate strongly typed ID instance.
-    /// </summary>
-    /// <param name="reader">The JSON reader</param>
-    /// <param name="typeToConvert">The target type (a strongly typed ID)</param>
-    /// <param name="options">JSON serializer options</param>
-    /// <returns>An instance of IStronglyTypedId with the parsed value set</returns>
-    public override IStronglyTypedId Read(ref Utf8JsonReader reader, Type typeToConvert, JsonSerializerOptions options)
-    {
-        // Read JSON as string
         var stringValue = reader.GetString();
+
         if (string.IsNullOrWhiteSpace(stringValue))
         {
-            throw new JsonException("The ID value is null or empty.");
+            throw new JsonException(
+                $"The ID value for '{typeToConvert.Name}' cannot be null or empty.");
         }
 
-        // Parse the string value to the underlying ID type (e.g., Guid)
         DefaultIdType parsedValue;
+
         try
         {
             parsedValue = DefaultIdType.Parse(stringValue);
         }
         catch (Exception ex)
         {
-            throw new JsonException($"Error parsing the value '{stringValue}' for type {typeToConvert}.", ex);
+            throw new JsonException(
+                $"Error parsing the value '{stringValue}' for type '{typeToConvert.Name}'.",
+                ex);
         }
 
-        // If the type is nullable, obtain its underlying type.
-        var effectiveType = Nullable.GetUnderlyingType(typeToConvert) ?? typeToConvert;
+        var effectiveType =
+            Nullable.GetUnderlyingType(typeToConvert) ?? typeToConvert;
 
-        // Every strongly-typed id has exactly one constructor taking its DefaultIdType value
-        // (positional record struct, or the explicit form like ApplicationUserId(DefaultIdType)).
-        var instance = Activator.CreateInstance(effectiveType, parsedValue)
-                       ?? throw new JsonException($"Could not create an instance of {effectiveType}.");
+        var instance = Activator.CreateInstance(
+            effectiveType,
+            parsedValue);
 
-        // Ensure the instance implements IStronglyTypedId.
         if (instance is not IStronglyTypedId stronglyTypedId)
         {
-            throw new JsonException($"Instance of {effectiveType} does not implement IStronglyTypedId.");
+            throw new JsonException(
+                $"Could not create strongly typed ID '{effectiveType.Name}'.");
         }
 
         return stronglyTypedId;
     }
 
-    /// <summary>
-    ///     Writing is not supported in this converter.
-    /// </summary>
-    public override void Write(Utf8JsonWriter writer, IStronglyTypedId value, JsonSerializerOptions options)
+    public override void Write(
+        Utf8JsonWriter writer,
+        IStronglyTypedId value,
+        JsonSerializerOptions options)
     {
-        throw new NotImplementedException(
-            "Direct serialization is not supported; please use the write-only converter.");
+        throw new NotSupportedException(
+            "Direct serialization is not supported. " +
+            "Use StronglyTypedIdWriteOnlyJsonConverter for response serialization.");
     }
 }

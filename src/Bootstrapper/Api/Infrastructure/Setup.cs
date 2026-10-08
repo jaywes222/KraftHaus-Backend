@@ -31,7 +31,7 @@ internal static partial class Setup
             .Configure<JsonOptions>(x =>
             {
                 x.SerializerOptions.Converters.Add(
-                    new StronglyTypedIdWriteOnlyJsonConverter());
+                    new StronglyTypedIdJsonConverterFactory());
 
                 x.SerializerOptions.Converters.Add(
                     new StrictDateTimeOffsetJsonConverter());

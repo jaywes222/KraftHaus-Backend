@@ -5,6 +5,7 @@ namespace Identity.Infrastructure.Options;
 
 public sealed class KraftHausIdentityServerOptions
 {
+    public const string SectionName = "IdentityServer";
     public required string IssuerUri { get; init; }
 
     public required string ApiScope { get; init; }

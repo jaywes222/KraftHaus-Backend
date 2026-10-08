@@ -65,6 +65,8 @@
     <ProjectReference Include="..\..\Common\Common.Infrastructure\Common.Infrastructure.csproj" />
     <ProjectReference Include="..\..\Common\Common.IntegrationEvents\Common.IntegrationEvents.csproj" />
     <ProjectReference Include="..\..\Common\Common.InterModuleRequests\Common.InterModuleRequests.csproj" />
+    <ProjectReference Include="..\..\Modules\Identity\Identity.Application\Identity.Application.csproj" />
+    <ProjectReference Include="..\..\Modules\Identity\Identity.Domain\Identity.Domain.csproj" />
     <ProjectReference Include="..\..\Modules\Tenancy.Infrastructure\Tenancy.Infrastructure.csproj" />
     <ProjectReference Include="..\..\Modules\Tenancy\Tenancy.Application\Tenancy.Application.csproj" />
     <ProjectReference Include="..\..\Modules\Tenancy\Tenancy.Domain\Tenancy.Domain.csproj" />

@@ -116,6 +116,16 @@ public sealed class OtpChallenge(OtpChallengeId id)
         string suppliedCodeHash,
         DateTimeOffset now)
     {
+        if (Status == OtpChallengeStatus.Locked)
+        {
+            return new Error
+            {
+                Key = "Identity.OtpLocked",
+                Description =
+                    "The OTP challenge is locked."
+            };
+        }
+
         if (Status != OtpChallengeStatus.Pending)
         {
             return new Error

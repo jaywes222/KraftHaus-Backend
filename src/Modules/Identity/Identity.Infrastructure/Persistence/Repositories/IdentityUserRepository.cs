@@ -46,4 +46,13 @@ internal sealed class IdentityUserRepository(
             [id],
             cancellationToken);
     }
+
+    public async Task AddAsync(
+        ApplicationUser user,
+        CancellationToken cancellationToken)
+    {
+        await db.Users.AddAsync(
+            user,
+            cancellationToken);
+    }
 }

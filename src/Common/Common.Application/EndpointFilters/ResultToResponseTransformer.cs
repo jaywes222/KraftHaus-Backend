@@ -7,7 +7,7 @@ using AspNetResult = Microsoft.AspNetCore.Http.IResult;
 
 namespace Common.Application.EndpointFilters;
 
-internal sealed class ResultToResponseTransformer(IWebHostEnvironment env)
+public sealed class ResultToResponseTransformer(IWebHostEnvironment env)
     : IEndpointFilter
 {
     public async ValueTask<object?> InvokeAsync(EndpointFilterInvocationContext context, EndpointFilterDelegate next)
@@ -57,7 +57,7 @@ internal sealed class ResultToResponseTransformer(IWebHostEnvironment env)
     }
 }
 
-internal sealed class ResultToCreatedResponseTransformer<T>(IWebHostEnvironment env)
+public sealed class ResultToCreatedResponseTransformer<T>(IWebHostEnvironment env)
     : IEndpointFilter
 {
     public async ValueTask<object?> InvokeAsync(EndpointFilterInvocationContext context, EndpointFilterDelegate next)
@@ -104,7 +104,7 @@ internal sealed class ResultToCreatedResponseTransformer<T>(IWebHostEnvironment 
     }
 }
 
-internal sealed class ResultToResponseTransformer<T>(IWebHostEnvironment env)
+public sealed class ResultToResponseTransformer<T>(IWebHostEnvironment env)
     : IEndpointFilter
 {
     public async ValueTask<object?> InvokeAsync(EndpointFilterInvocationContext context, EndpointFilterDelegate next)

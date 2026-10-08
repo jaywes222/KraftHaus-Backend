@@ -1,5 +1,6 @@
 using Common.Infrastructure.Extensions;
 using Common.Infrastructure.Modules;
+using Identity.Infrastructure.Endpoints;
 using Identity.Infrastructure.Persistence;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Routing;
@@ -32,7 +33,9 @@ public sealed class IdentityModule : ICoreModule
         app.UseIdentityServer();
     }
 
-    public void MapEndpoints(IEndpointRouteBuilder endpoints)
+    public void MapEndpoints(
+        IEndpointRouteBuilder endpoints)
     {
+        endpoints.MapIdentityEndpoints();
     }
 }

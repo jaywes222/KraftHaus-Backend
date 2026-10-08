@@ -61,6 +61,10 @@ public interface IIdentityUserRepository
         EmailAddress email,
         CancellationToken cancellationToken);
 
+    Task AddAsync(
+        ApplicationUser user,
+        CancellationToken cancellationToken);
+
     Task SaveAsync(
         ApplicationUser user,
         CancellationToken cancellationToken);
