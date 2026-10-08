@@ -267,4 +267,50 @@ public sealed class IdentityDomainTests
             PolicyRef.Create("privacy", 1, "privacy-hash").Value!,
             _now).Value!;
     }
+
+    [Fact]
+    public void RevokedSessionCannotRotateRefreshToken()
+    {
+        var sessionResult =
+            AuthSession.Start(
+                new AuthSessionId(
+                    Guid.CreateVersion7()),
+                new Common.Domain.StronglyTypedIds.ApplicationUserId(
+                    Guid.CreateVersion7()),
+                "device-1",
+                "hash-1",
+                _now);
+
+        Assert.False(
+            sessionResult.IsFailure);
+
+        var session =
+            sessionResult.Value!;
+
+        var revokeResult =
+            session.Revoke(
+                SessionRevocationReason.SignedOut,
+                _now);
+
+        Assert.False(
+            revokeResult.IsFailure);
+
+        var rotateResult =
+            session.Rotate(
+                1,
+                "hash-1",
+                "hash-2",
+                _now);
+
+        Assert.True(
+            rotateResult.IsFailure);
+
+        Assert.Equal(
+            "Identity.SessionNotActive",
+            rotateResult.Error!.Key);
+
+        Assert.Equal(
+            AuthSessionStatus.Revoked,
+            session.Status);
+    }
 }

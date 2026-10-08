@@ -349,6 +349,174 @@ public sealed class IdentityApplicationTests
             unitOfWork.SaveCount);
     }
 
+    [Fact]
+    public async Task RevokeAuthSessionRevokesSessionAndPersists()
+    {
+        var sessionResult =
+            AuthSession.Start(
+                new AuthSessionId(
+                    Guid.CreateVersion7()),
+                new Common.Domain.StronglyTypedIds.ApplicationUserId(
+                    Guid.CreateVersion7()),
+                "device-1",
+                "hash-1",
+                _clock.GetUtcNow());
+
+        Assert.False(
+            sessionResult.IsFailure);
+
+        var session =
+            sessionResult.Value!;
+
+        var sessions =
+            new FakeSessions(session);
+
+        var unitOfWork =
+            new RecordingUnitOfWork();
+
+        var service =
+            new RevokeAuthSessionService(
+                sessions,
+                unitOfWork,
+                _clock);
+
+        var result =
+            await service.ExecuteAsync(
+                new RevokeAuthSessionCommand(
+                    session.Id),
+                CancellationToken.None);
+
+        Assert.False(
+            result.IsFailure);
+
+        Assert.Equal(
+            AuthSessionStatus.Revoked,
+            session.Status);
+
+        Assert.Equal(
+            SessionRevocationReason.SignedOut,
+            session.RevocationReason);
+
+        Assert.NotNull(
+            session.RevokedAt);
+
+        Assert.Equal(
+            1,
+            unitOfWork.SaveCount);
+
+        Assert.Equal(
+            session,
+            sessions.LastSaved);
+    }
+
+    [Fact]
+    public async Task RevokeAuthSessionIsIdempotentForAlreadyRevokedSession()
+    {
+        var sessionResult =
+            AuthSession.Start(
+                new AuthSessionId(
+                    Guid.CreateVersion7()),
+                new Common.Domain.StronglyTypedIds.ApplicationUserId(
+                    Guid.CreateVersion7()),
+                "device-1",
+                "hash-1",
+                _clock.GetUtcNow());
+
+        Assert.False(
+            sessionResult.IsFailure);
+
+        var session =
+            sessionResult.Value!;
+
+        var firstRevoke =
+            session.Revoke(
+                SessionRevocationReason.SignedOut,
+                _clock.GetUtcNow());
+
+        Assert.False(
+            firstRevoke.IsFailure);
+
+        var originalRevokedAt =
+            session.RevokedAt;
+
+        var sessions =
+            new FakeSessions(session);
+
+        var unitOfWork =
+            new RecordingUnitOfWork();
+
+        _clock.Advance(
+            TimeSpan.FromMinutes(1));
+
+        var service =
+            new RevokeAuthSessionService(
+                sessions,
+                unitOfWork,
+                _clock);
+
+        var result =
+            await service.ExecuteAsync(
+                new RevokeAuthSessionCommand(
+                    session.Id),
+                CancellationToken.None);
+
+        Assert.False(
+            result.IsFailure);
+
+        Assert.Equal(
+            AuthSessionStatus.Revoked,
+            session.Status);
+
+        Assert.Equal(
+            SessionRevocationReason.SignedOut,
+            session.RevocationReason);
+
+        Assert.Equal(
+            originalRevokedAt,
+            session.RevokedAt);
+
+        Assert.Equal(
+            1,
+            unitOfWork.SaveCount);
+    }
+
+    [Fact]
+    public async Task RevokeAuthSessionReturnsNotFoundWhenSessionDoesNotExist()
+    {
+        var missingSessionId =
+            new AuthSessionId(
+                Guid.CreateVersion7());
+
+        var sessions =
+            new FakeSessions(null);
+
+        var unitOfWork =
+            new RecordingUnitOfWork();
+
+        var service =
+            new RevokeAuthSessionService(
+                sessions,
+                unitOfWork,
+                _clock);
+
+        var result =
+            await service.ExecuteAsync(
+                new RevokeAuthSessionCommand(
+                    missingSessionId),
+                CancellationToken.None);
+
+        Assert.True(
+            result.IsFailure);
+
+        Assert.Equal(
+            "NotFound",
+            result.Error!.Key);
+
+        Assert.Equal(
+            0,
+            unitOfWork.SaveCount);
+    }
+
     private sealed class TestClock(
         DateTimeOffset initialUtc)
         : TimeProvider
@@ -521,19 +689,25 @@ public sealed class IdentityApplicationTests
     }
 
     private sealed class FakeSessions(
-        AuthSession session)
+        AuthSession? session)
         : IAuthSessionRepository
     {
-        private readonly AuthSession
-            _session =
-                session;
+        private readonly AuthSession? _session =
+            session;
+
+        public AuthSession? LastSaved
+        {
+            get;
+            private set;
+        }
 
         public Task<AuthSession?>
             FindAsync(
                 AuthSessionId id,
                 CancellationToken cancellationToken)
         {
-            return Task.FromResult<AuthSession?>(
+            return Task.FromResult(
+                _session is not null &&
                 _session.Id == id
                     ? _session
                     : null);
@@ -550,6 +724,9 @@ public sealed class IdentityApplicationTests
             AuthSession session,
             CancellationToken cancellationToken)
         {
+            LastSaved =
+                session;
+
             return Task.CompletedTask;
         }
     }
