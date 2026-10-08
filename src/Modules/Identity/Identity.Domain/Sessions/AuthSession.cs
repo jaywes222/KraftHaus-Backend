@@ -22,7 +22,7 @@ public sealed class AuthSession(AuthSessionId id)
 
     private AuthSession()
         : this(new AuthSessionId(
-            DefaultIdType.CreateVersion7()))
+            Guid.CreateVersion7()))
     {
     }
 
@@ -89,7 +89,9 @@ public sealed class AuthSession(AuthSessionId id)
             CurrentSecretHash = secretHash,
             StartedAt = now,
             AbsoluteExpiresAt = now + MaximumLifetime,
-            ExpiresAt = now + SlidingLifetime
+            ExpiresAt = Min(
+                now + SlidingLifetime,
+                now + MaximumLifetime)
         };
 
         session.RaiseEvent(
@@ -101,10 +103,10 @@ public sealed class AuthSession(AuthSessionId id)
     }
 
     public Result<AuthSessionRotationOutcome> Rotate(
-    long presentedGeneration,
-    string presentedSecretHash,
-    string newSecretHash,
-    DateTimeOffset now)
+        long presentedGeneration,
+        string presentedSecretHash,
+        string newSecretHash,
+        DateTimeOffset now)
     {
         if (Status != AuthSessionStatus.Active)
         {
@@ -163,7 +165,6 @@ public sealed class AuthSession(AuthSessionId id)
             return AuthSessionRotationOutcome.Rotated;
         }
 
-        // Previous-generation grace.
         if (PreviousGeneration.HasValue &&
             PreviousSecretHash is not null &&
             PreviousRotatedAt.HasValue &&

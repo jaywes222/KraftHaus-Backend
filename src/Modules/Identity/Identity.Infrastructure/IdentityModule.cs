@@ -23,11 +23,13 @@ public sealed class IdentityModule : ICoreModule
     public void AddServices(
         IServiceCollection services,
         IConfiguration configuration)
-        => services.AddIdentity();
+        => services.AddIdentity(configuration);
 
     public void UseModule(IApplicationBuilder app)
     {
         app.UseMigration<IdentityDbContext>();
+
+        app.UseIdentityServer();
     }
 
     public void MapEndpoints(IEndpointRouteBuilder endpoints)

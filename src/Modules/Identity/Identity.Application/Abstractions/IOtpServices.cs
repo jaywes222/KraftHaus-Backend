@@ -1,4 +1,5 @@
 using System.Net.Mail;
+using Common.Domain.StronglyTypedIds;
 using Identity.Domain.Common;
 using Identity.Domain.Otp;
 using Identity.Domain.Users;
@@ -48,6 +49,10 @@ public interface IOtpSender
 
 public interface IIdentityUserRepository
 {
+    Task<ApplicationUser?> FindAsync(
+        ApplicationUserId id,
+        CancellationToken cancellationToken);
+
     Task<ApplicationUser?> FindByPhoneAsync(
         PhoneNumber phone,
         CancellationToken cancellationToken);
