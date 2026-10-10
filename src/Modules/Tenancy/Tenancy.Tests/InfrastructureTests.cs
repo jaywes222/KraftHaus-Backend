@@ -1,4 +1,5 @@
 using Common.Application.Persistence;
+using Common.Domain.Tenancy;
 using Tenancy.Application.Abstractions;
 using Tenancy.Infrastructure.Database;
 using Xunit;
@@ -75,15 +76,15 @@ public sealed class ProvisioningTests
     public async Task InitializeAllResumesByInitializingEachNonDisabledTenant()
     {
         var active = new TenantDescriptor(
-            new Tenancy.Domain.Common.TenantId(Guid.CreateVersion7()),
+            new TenantId(Guid.CreateVersion7()),
             Tenancy.Domain.Tenants.TenantSlug.Create("active").Value!,
-            Tenancy.Domain.Tenants.IdentityScope.Tenant,
+            IdentityScope.Tenant,
             Tenancy.Domain.Tenants.TenantStatus.Active,
             "krafthaus_t_active");
         var disabled = new TenantDescriptor(
-            new Tenancy.Domain.Common.TenantId(Guid.CreateVersion7()),
+            new TenantId(Guid.CreateVersion7()),
             Tenancy.Domain.Tenants.TenantSlug.Create("disabled").Value!,
-            Tenancy.Domain.Tenants.IdentityScope.Tenant,
+            IdentityScope.Tenant,
             Tenancy.Domain.Tenants.TenantStatus.Disabled,
             "krafthaus_t_disabled");
         var registry = new ProvisioningRegistry([active, disabled]);
@@ -101,14 +102,14 @@ public sealed class ProvisioningTests
     private sealed class ProvisioningRegistry(IReadOnlyCollection<TenantDescriptor> tenants) : ITenantRegistry
     {
         public Task<TenantDescriptor?> FindByHostAsync(Tenancy.Domain.Tenants.HostName hostName, CancellationToken cancellationToken) => Task.FromResult<TenantDescriptor?>(null);
-        public Task<TenantDescriptor?> FindByIdAsync(Tenancy.Domain.Common.TenantId tenantId, CancellationToken cancellationToken) => Task.FromResult(tenants.SingleOrDefault(x => x.TenantId == tenantId));
+        public Task<TenantDescriptor?> FindByIdAsync(TenantId tenantId, CancellationToken cancellationToken) => Task.FromResult(tenants.SingleOrDefault(x => x.TenantId == tenantId));
         public Task<IReadOnlyCollection<TenantDescriptor>> GetAllAsync(CancellationToken cancellationToken) => Task.FromResult(tenants);
         public Task<long> GetVersionAsync(CancellationToken cancellationToken) => Task.FromResult(1L);
     }
 
     private sealed class TestConnectionFactory : ITenantDatabaseConnectionFactory
     {
-        public string Create(Tenancy.Domain.Common.TenantId tenantId, string databaseName) => $"Database={databaseName}";
+        public string Create(TenantId tenantId, string databaseName) => $"Database={databaseName}";
     }
 
     private sealed class RecordingInitializer : IDatabaseInitializer

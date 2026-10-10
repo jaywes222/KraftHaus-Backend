@@ -27,6 +27,9 @@ public sealed class OtpChallengeConfiguration
             .HasMaxLength(32)
             .IsRequired();
 
+        builder.Property(x => x.TenantId)
+            .HasConversion(IdentityEfConversions.TenantIdConverter());
+
         builder.Property(x => x.Destination)
             .HasMaxLength(320)
             .IsRequired();
@@ -59,12 +62,13 @@ public sealed class OtpChallengeConfiguration
         builder.HasIndex(
                 x => new
                 {
+                    x.TenantId,
                     x.Channel,
                     x.Destination,
                     x.Purpose,
                     x.IssuedAt
                 })
-            .IsDescending(false, false, false, true);
+            .IsDescending(false, false, false, false, true);
 
         builder.HasIndex(x => x.ExpiresAt);
 

@@ -1,6 +1,8 @@
+using Common.Application.Auditing;
 using Common.Domain.ResultMonad;
 using Common.Domain.TimeProvision;
 using Identity.Application.Abstractions;
+using Identity.Application.Auditing;
 using Identity.Domain.Common;
 using Identity.Domain.Sessions;
 
@@ -20,9 +22,30 @@ public sealed class RefreshAuthSessionService(
     IRefreshTokenService refreshTokens,
     ISessionTokenIssuer accessTokens,
     IIdentityUnitOfWork unitOfWork,
-    TimeProvider time)
+    TimeProvider time,
+    IIdentityAuditTrail auditTrail)
 {
-    public async Task<Result<RefreshAuthSessionResult>> ExecuteAsync(
+    public Task<Result<RefreshAuthSessionResult>> ExecuteAsync(
+        RefreshAuthSessionCommand command,
+        CancellationToken cancellationToken)
+    {
+        ArgumentNullException.ThrowIfNull(command);
+
+        return ExecuteCoreAsync(command, cancellationToken)
+            .AuditRejectionAsync(
+                auditTrail,
+                error => new IdentityAuditRejection(
+                    IdentityAuditActions.SessionRefreshRejected,
+                    error)
+                {
+                    Target = new AuditTarget(
+                        IdentityAuditTargets.AuthSession,
+                        command.SessionId.Value.ToString())
+                },
+                cancellationToken);
+    }
+
+    private async Task<Result<RefreshAuthSessionResult>> ExecuteCoreAsync(
         RefreshAuthSessionCommand command,
         CancellationToken cancellationToken)
     {

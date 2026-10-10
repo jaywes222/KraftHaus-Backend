@@ -1,7 +1,10 @@
 using Common.Application.Options;
 using Common.Application.Persistence;
+using Common.Infrastructure.Communications.Email;
+using Common.Infrastructure.Notifications.Sms;
 using Common.Infrastructure.Persistence.Auditing;
 using Common.Infrastructure.Persistence.AuditLog;
+using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Options;
 using Npgsql;
@@ -11,7 +14,8 @@ namespace Common.Infrastructure.Persistence;
 public static class Setup
 {
     public static IServiceCollection AddCommonPersistence(
-        this IServiceCollection services)
+        this IServiceCollection services,
+        IConfiguration configuration)
     {
         return services
             // Single shared NpgsqlDataSource → one bounded connection pool for the whole app.
@@ -36,6 +40,9 @@ public static class Setup
             // Explicit TimeProvider registration.
             // Infrastructure services and EF interceptors depend on TimeProvider.
             .AddSingleton(TimeProvider.System)
+
+            .AddSmsGateway(configuration)
+            .AddEmailGateway(configuration)
 
             .AddAuditLogServices()
             .AddAuditingInterceptors()

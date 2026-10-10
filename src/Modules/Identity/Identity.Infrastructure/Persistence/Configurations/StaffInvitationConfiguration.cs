@@ -23,6 +23,14 @@ public sealed class StaffInvitationConfiguration
                 IdentityEfConversions
                     .IdConverter<StaffInvitationId>());
 
+        builder.Ignore(x => x.ExpiresAt);
+
+        builder.Property(x => x.TenantId)
+            .HasConversion(IdentityEfConversions.TenantIdConverter())
+            .IsRequired();
+
+        builder.HasIndex(x => new { x.TenantId, x.Status });
+
         builder.Property(x => x.InvitedByUserId)
             .HasConversion(
                 IdentityEfConversions

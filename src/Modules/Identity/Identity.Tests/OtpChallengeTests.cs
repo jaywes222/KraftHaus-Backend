@@ -1,3 +1,4 @@
+using Common.Domain.Tenancy;
 using Identity.Domain.Common;
 using Identity.Domain.Otp;
 using Xunit;
@@ -106,7 +107,8 @@ public sealed class OtpChallengeTests
             "+254712345678",
             OtpPurpose.SignIn,
             "new",
-            _now.AddSeconds(30));
+            _now.AddSeconds(30),
+            new TenantId(Guid.CreateVersion7()));
 
         Assert.True(result.IsFailure);
         Assert.Equal("Identity.OtpResendTooSoon", result.Error!.Key);
@@ -125,7 +127,8 @@ public sealed class OtpChallengeTests
             "+254712345678",
             OtpPurpose.SignIn,
             "new",
-            _now.Add(OtpChallenge.ResendDelay));
+            _now.Add(OtpChallenge.ResendDelay),
+            new TenantId(Guid.CreateVersion7()));
 
         Assert.False(result.IsFailure);
         Assert.Equal(OtpChallengeStatus.Superseded, previous.Status);
@@ -141,6 +144,7 @@ public sealed class OtpChallengeTests
             "+254712345678",
             OtpPurpose.SignIn,
             hash,
-            _now);
+            _now,
+            new TenantId(Guid.CreateVersion7()));
     }
 }

@@ -5,6 +5,7 @@ using Identity.Domain.Otp;
 using Identity.Domain.Roles;
 using Identity.Domain.Sessions;
 using Identity.Domain.Users;
+using Identity.Infrastructure.Auditing;
 using Identity.Infrastructure.Persistence.Configurations;
 using Microsoft.EntityFrameworkCore;
 
@@ -35,6 +36,10 @@ public sealed class IdentityDbContext(
     public DbSet<CustomerRef> CustomerRefs =>
         Set<CustomerRef>();
 
+    /// <summary>Append-only security audit trail (WP-08). Written by the audit pipeline only.</summary>
+    public DbSet<IdentityAuditRecord> SecurityAuditLog =>
+        Set<IdentityAuditRecord>();
+
     protected override void OnModelCreating(
         ModelBuilder modelBuilder)
     {
@@ -60,6 +65,9 @@ public sealed class IdentityDbContext(
 
         modelBuilder.ApplyConfiguration(
             new CustomerRefConfiguration());
+
+        modelBuilder.ApplyConfiguration(
+            new IdentityAuditRecordConfiguration());
 
         base.OnModelCreating(modelBuilder);
     }

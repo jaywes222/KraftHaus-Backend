@@ -1,6 +1,10 @@
+using Common.Application.Auditing;
+using Common.Application.Tenancy;
 using Common.Domain.ResultMonad;
 using Common.Domain.StronglyTypedIds;
+using Common.Domain.Tenancy;
 using Identity.Application.Abstractions;
+using Identity.Application.Auditing;
 using Identity.Application.Options;
 using Identity.Application.Sessions;
 using Identity.Domain.Common;
@@ -8,8 +12,6 @@ using Identity.Domain.Otp;
 using Identity.Domain.Sessions;
 using Identity.Domain.Users;
 using Microsoft.Extensions.Options;
-using Tenancy.Domain.Common;
-using Tenancy.Domain.Tenants;
 
 namespace Identity.Application.Auth;
 
@@ -17,8 +19,6 @@ public sealed record CompleteOtpLoginCommand(
     OtpChallengeId ChallengeId,
     string Code,
     string DeviceId,
-    IdentityScope Scope,
-    TenantId? TenantId,
     string DisplayName,
     bool AcceptTerms,
     bool AcceptPrivacy);
@@ -40,12 +40,34 @@ public sealed class CompleteOtpLoginService(
     ISessionTokenIssuer accessTokens,
     IIdentityUnitOfWork unitOfWork,
     IOptions<IdentityPolicyOptions> policyOptions,
-    TimeProvider time)
+    TimeProvider time,
+    IIdentityAuditTrail auditTrail,
+    ICurrentTenant currentTenant)
 {
     private readonly IdentityPolicyOptions _policies =
         policyOptions.Value;
 
-    public async Task<Result<CompleteOtpLoginResult>> ExecuteAsync(
+    public Task<Result<CompleteOtpLoginResult>> ExecuteAsync(
+        CompleteOtpLoginCommand command,
+        CancellationToken cancellationToken)
+    {
+        ArgumentNullException.ThrowIfNull(command);
+
+        return ExecuteCoreAsync(command, cancellationToken)
+            .AuditRejectionAsync(
+                auditTrail,
+                error => new IdentityAuditRejection(
+                    IdentityAuditActions.SignInRejected,
+                    error)
+                {
+                    Target = new AuditTarget(
+                        IdentityAuditTargets.OtpChallenge,
+                        command.ChallengeId.Value.ToString())
+                },
+                cancellationToken);
+    }
+
+    private async Task<Result<CompleteOtpLoginResult>> ExecuteCoreAsync(
         CompleteOtpLoginCommand command,
         CancellationToken cancellationToken)
     {
@@ -63,12 +85,29 @@ public sealed class CompleteOtpLoginService(
                 "Device id is required.");
         }
 
+        /*
+         * The identity realm (scope + tenant) comes from the tenant resolved for this host, never from the
+         * request body: an unauthenticated caller must not choose which directory it registers into.
+         */
+        if (!currentTenant.IsResolved)
+        {
+            return IdentityErrors.InvalidState(
+                "TenantUnresolved",
+                "Sign-in requires a tenant host.");
+        }
+
+        var realm =
+            IdentityRealm.ForHost(
+                currentTenant.TenantId,
+                currentTenant.IdentityScope);
+
         var challenge =
             await challenges.FindAsync(
                 command.ChallengeId,
                 cancellationToken);
 
-        if (challenge is null)
+        // A code issued on another tenant's host is treated as unknown here (no cross-tenant sign-in, no oracle).
+        if (challenge is null || !challenge.BelongsTo(currentTenant.TenantId))
         {
             return Error.NotFound(
                 nameof(command.ChallengeId),
@@ -111,6 +150,7 @@ public sealed class CompleteOtpLoginService(
 
         var user =
             await FindUserAsync(
+                realm,
                 challenge,
                 cancellationToken);
 
@@ -163,6 +203,7 @@ public sealed class CompleteOtpLoginService(
                 {
                     OtpChannel.Phone =>
                         RegisterPhoneUser(
+                            realm,
                             userId,
                             challenge,
                             command,
@@ -172,6 +213,7 @@ public sealed class CompleteOtpLoginService(
 
                     OtpChannel.Email =>
                         RegisterEmailUser(
+                            realm,
                             userId,
                             challenge,
                             command,
@@ -309,6 +351,7 @@ public sealed class CompleteOtpLoginService(
     }
 
     private static Result<ApplicationUser> RegisterPhoneUser(
+        IdentityRealm realm,
         ApplicationUserId userId,
         OtpChallenge challenge,
         CompleteOtpLoginCommand command,
@@ -327,8 +370,8 @@ public sealed class CompleteOtpLoginService(
 
         return ApplicationUser.RegisterVerifiedPhone(
             userId,
-            command.Scope,
-            command.TenantId,
+            realm.Scope,
+            realm.TenantId,
             phoneResult.Value!,
             command.DisplayName,
             terms,
@@ -337,6 +380,7 @@ public sealed class CompleteOtpLoginService(
     }
 
     private static Result<ApplicationUser> RegisterEmailUser(
+        IdentityRealm realm,
         ApplicationUserId userId,
         OtpChallenge challenge,
         CompleteOtpLoginCommand command,
@@ -355,8 +399,8 @@ public sealed class CompleteOtpLoginService(
 
         return ApplicationUser.RegisterVerifiedEmail(
             userId,
-            command.Scope,
-            command.TenantId,
+            realm.Scope,
+            realm.TenantId,
             emailResult.Value!,
             command.DisplayName,
             terms,
@@ -365,6 +409,7 @@ public sealed class CompleteOtpLoginService(
     }
 
     private async Task<ApplicationUser?> FindUserAsync(
+        IdentityRealm realm,
         OtpChallenge challenge,
         CancellationToken cancellationToken)
     {
@@ -372,11 +417,13 @@ public sealed class CompleteOtpLoginService(
         {
             OtpChannel.Phone =>
                 await FindByPhoneAsync(
+                    realm,
                     challenge.Destination,
                     cancellationToken),
 
             OtpChannel.Email =>
                 await FindByEmailAsync(
+                    realm,
                     challenge.Destination,
                     cancellationToken),
 
@@ -385,6 +432,7 @@ public sealed class CompleteOtpLoginService(
     }
 
     private async Task<ApplicationUser?> FindByPhoneAsync(
+        IdentityRealm realm,
         string value,
         CancellationToken cancellationToken)
     {
@@ -397,11 +445,13 @@ public sealed class CompleteOtpLoginService(
         }
 
         return await users.FindByPhoneAsync(
+            realm,
             phone.Value!,
             cancellationToken);
     }
 
     private async Task<ApplicationUser?> FindByEmailAsync(
+        IdentityRealm realm,
         string value,
         CancellationToken cancellationToken)
     {
@@ -414,6 +464,7 @@ public sealed class CompleteOtpLoginService(
         }
 
         return await users.FindByEmailAsync(
+            realm,
             email.Value!,
             cancellationToken);
     }

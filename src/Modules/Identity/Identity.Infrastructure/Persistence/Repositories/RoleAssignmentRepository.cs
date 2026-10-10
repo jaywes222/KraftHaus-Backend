@@ -1,5 +1,6 @@
 using Common.Domain.StronglyTypedIds;
 using Identity.Application.Authorization;
+using Identity.Domain.Common;
 using Identity.Domain.Roles;
 using Microsoft.EntityFrameworkCore;
 
@@ -9,6 +10,13 @@ internal sealed class RoleAssignmentRepository(
     IdentityDbContext db)
     : IRoleAssignmentRepository
 {
+    public Task<RoleAssignment?> FindAsync(
+        RoleAssignmentId id,
+        CancellationToken cancellationToken)
+    {
+        return db.RoleAssignments.SingleOrDefaultAsync(x => x.Id == id, cancellationToken);
+    }
+
     public Task AddAsync(
         RoleAssignment assignment,
         CancellationToken cancellationToken)

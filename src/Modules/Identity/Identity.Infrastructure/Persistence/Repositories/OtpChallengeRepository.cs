@@ -1,3 +1,4 @@
+using Common.Domain.Tenancy;
 using Identity.Application.Abstractions;
 using Identity.Domain.Common;
 using Identity.Domain.Otp;
@@ -10,6 +11,7 @@ internal sealed class OtpChallengeRepository(
     : IOtpChallengeRepository
 {
     public Task<OtpChallenge?> FindLatestPendingAsync(
+        TenantId tenantId,
         OtpChannel channel,
         string destination,
         OtpPurpose purpose,
@@ -17,6 +19,7 @@ internal sealed class OtpChallengeRepository(
     {
         return db.OtpChallenges
             .Where(x =>
+                x.TenantId == tenantId &&
                 x.Channel == channel &&
                 x.Destination == destination &&
                 x.Purpose == purpose &&

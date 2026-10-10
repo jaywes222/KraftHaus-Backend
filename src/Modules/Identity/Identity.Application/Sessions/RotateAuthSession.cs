@@ -1,6 +1,8 @@
+using Common.Application.Auditing;
 using Common.Domain.ResultMonad;
 using Common.Domain.TimeProvision;
 using Identity.Application.Abstractions;
+using Identity.Application.Auditing;
 using Identity.Domain.Common;
 using Identity.Domain.Sessions;
 
@@ -19,9 +21,30 @@ public sealed class RotateAuthSessionService(
     IAuthSessionRepository sessions,
     IRefreshTokenService refreshTokens,
     IIdentityUnitOfWork unitOfWork,
-    TimeProvider time)
+    TimeProvider time,
+    IIdentityAuditTrail auditTrail)
 {
-    public async Task<Result<RotateAuthSessionResult>> ExecuteAsync(
+    public Task<Result<RotateAuthSessionResult>> ExecuteAsync(
+        RotateAuthSessionCommand command,
+        CancellationToken cancellationToken)
+    {
+        ArgumentNullException.ThrowIfNull(command);
+
+        return ExecuteCoreAsync(command, cancellationToken)
+            .AuditRejectionAsync(
+                auditTrail,
+                error => new IdentityAuditRejection(
+                    IdentityAuditActions.SessionRotationRejected,
+                    error)
+                {
+                    Target = new AuditTarget(
+                        IdentityAuditTargets.AuthSession,
+                        command.SessionId.Value.ToString())
+                },
+                cancellationToken);
+    }
+
+    private async Task<Result<RotateAuthSessionResult>> ExecuteCoreAsync(
         RotateAuthSessionCommand command,
         CancellationToken cancellationToken)
     {

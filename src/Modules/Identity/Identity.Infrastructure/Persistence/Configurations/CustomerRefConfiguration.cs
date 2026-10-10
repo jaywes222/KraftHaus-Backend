@@ -1,10 +1,10 @@
+using Common.Domain.Tenancy;
 using Identity.Domain.Common;
 using Identity.Domain.Customers;
 using Identity.Domain.Users;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Metadata.Builders;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
-using Tenancy.Domain.Common;
 
 namespace Identity.Infrastructure.Persistence.Configurations;
 

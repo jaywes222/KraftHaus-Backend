@@ -8,6 +8,7 @@
   </PropertyGroup>
 
   <ItemGroup>
+    <PackageReference Include="FluentAssertions" />
     <PackageReference Include="Microsoft.NET.Test.Sdk" />
     <PackageReference Include="xunit.v3" />
     <PackageReference Include="xunit.runner.visualstudio">
@@ -16,10 +17,13 @@
         runtime; build; native; contentfiles; analyzers; buildtransitive
       </IncludeAssets>
     </PackageReference>
+    <PackageReference Include="Testcontainers.PostgreSql" />
   </ItemGroup>
 
   <ItemGroup>
+    <ProjectReference Include="..\Common.Application\Common.Application.csproj" />
     <ProjectReference Include="..\Common.Domain\Common.Domain.csproj" />
+    <ProjectReference Include="..\Common.Infrastructure\Common.Infrastructure.csproj" />
   </ItemGroup>
 
 </Project>

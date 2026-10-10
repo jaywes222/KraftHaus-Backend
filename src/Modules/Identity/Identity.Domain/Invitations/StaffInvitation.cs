@@ -1,6 +1,7 @@
 using Common.Domain.Aggregates;
 using Common.Domain.ResultMonad;
 using Common.Domain.StronglyTypedIds;
+using Common.Domain.Tenancy;
 using Identity.Domain.Common;
 using Identity.Domain.Events;
 using Identity.Domain.Roles;
@@ -19,6 +20,9 @@ public sealed class StaffInvitation(StaffInvitationId id)
             Guid.CreateVersion7()))
     {
     }
+
+    /// <summary>The tenant the invitation was issued on; it can only be accepted or revoked there.</summary>
+    public TenantId TenantId { get; private set; }
 
     public ApplicationUserId InvitedByUserId { get; private set; }
 
@@ -41,12 +45,16 @@ public sealed class StaffInvitation(StaffInvitationId id)
 
     public DateTimeOffset? RevokedAt { get; private set; }
 
+    public DateTimeOffset ExpiresAt =>
+        CreatedAt + _invitationLifetime;
+
     public bool IsExpired(DateTimeOffset now) =>
         Status == StaffInvitationStatus.Pending &&
         now >= CreatedAt + _invitationLifetime;
 
     public static Result<StaffInvitation> ForPhone(
         StaffInvitationId id,
+        TenantId tenantId,
         ApplicationUserId invitedByUserId,
         string destination,
         IdentityRole role,
@@ -56,6 +64,7 @@ public sealed class StaffInvitation(StaffInvitationId id)
     {
         return Create(
             id,
+            tenantId,
             invitedByUserId,
             InvitationChannel.Phone,
             destination,
@@ -67,6 +76,7 @@ public sealed class StaffInvitation(StaffInvitationId id)
 
     public static Result<StaffInvitation> ForEmail(
         StaffInvitationId id,
+        TenantId tenantId,
         ApplicationUserId invitedByUserId,
         string destination,
         IdentityRole role,
@@ -76,6 +86,7 @@ public sealed class StaffInvitation(StaffInvitationId id)
     {
         return Create(
             id,
+            tenantId,
             invitedByUserId,
             InvitationChannel.Email,
             destination,
@@ -87,6 +98,7 @@ public sealed class StaffInvitation(StaffInvitationId id)
 
     private static Result<StaffInvitation> Create(
         StaffInvitationId id,
+        TenantId tenantId,
         ApplicationUserId invitedByUserId,
         InvitationChannel channel,
         string destination,
@@ -118,6 +130,7 @@ public sealed class StaffInvitation(StaffInvitationId id)
 
         var invitation = new StaffInvitation(id)
         {
+            TenantId = tenantId,
             InvitedByUserId = invitedByUserId,
             Channel = channel,
             Destination = destination.Trim(),

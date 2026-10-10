@@ -2,6 +2,7 @@ using Microsoft.Extensions.Caching.Memory;
 using Common.Domain.ResultMonad;
 using Tenancy.Application.Abstractions;
 using Tenancy.Domain.Tenants;
+using Common.Domain.Tenancy;
 
 namespace Tenancy.Infrastructure.Resolution;
 

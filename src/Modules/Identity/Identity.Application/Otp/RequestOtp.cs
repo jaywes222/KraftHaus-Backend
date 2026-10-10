@@ -1,4 +1,6 @@
+using Common.Application.Tenancy;
 using Common.Domain.ResultMonad;
+using Identity.Application.Auditing;
 using Common.Domain.TimeProvision;
 using Identity.Application.Abstractions;
 using Identity.Domain.Common;
@@ -23,9 +25,34 @@ public sealed class RequestOtpService(
     IOtpCodeHasher codeHasher,
     IOtpSender sender,
     IIdentityUnitOfWork unitOfWork,
-    TimeProvider time)
+    TimeProvider time,
+    IIdentityAuditTrail auditTrail,
+    ICurrentTenant currentTenant)
 {
-    public async Task<Result<RequestOtpResult>> ExecuteAsync(
+    public Task<Result<RequestOtpResult>> ExecuteAsync(
+        RequestOtpCommand command,
+        CancellationToken cancellationToken)
+    {
+        ArgumentNullException.ThrowIfNull(command);
+
+        return ExecuteCoreAsync(command, cancellationToken)
+            .AuditRejectionAsync(
+                auditTrail,
+                error => new IdentityAuditRejection(
+                    IdentityAuditActions.OtpRequestRejected,
+                    error)
+                {
+                    DestinationToFingerprint = command.Destination,
+                    Metadata = new Dictionary<string, string>(StringComparer.Ordinal)
+                    {
+                        ["channel"] = command.Channel.ToString(),
+                        ["purpose"] = command.Purpose.ToString()
+                    }
+                },
+                cancellationToken);
+    }
+
+    private async Task<Result<RequestOtpResult>> ExecuteCoreAsync(
         RequestOtpCommand command,
         CancellationToken cancellationToken)
     {
@@ -40,7 +67,16 @@ public sealed class RequestOtpService(
 
         var destination = destinationResult.Value!;
 
+        // The challenge is bound to the host's tenant: it can only be redeemed on that tenant's hosts.
+        if (!currentTenant.IsResolved)
+        {
+            return IdentityErrors.InvalidState(
+                "TenantUnresolved",
+                "Requesting a code requires a tenant host.");
+        }
+
         var previous = await challenges.FindLatestPendingAsync(
+            currentTenant.TenantId,
             command.Channel,
             destination,
             command.Purpose,
@@ -58,7 +94,8 @@ public sealed class RequestOtpService(
             destination,
             command.Purpose,
             hash,
-            now);
+            now,
+            currentTenant.TenantId);
 
         if (challengeResult.IsFailure)
         {

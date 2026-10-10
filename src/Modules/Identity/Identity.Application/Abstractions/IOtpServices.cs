@@ -1,5 +1,6 @@
 using System.Net.Mail;
 using Common.Domain.StronglyTypedIds;
+using Common.Domain.Tenancy;
 using Identity.Domain.Common;
 using Identity.Domain.Otp;
 using Identity.Domain.Users;
@@ -8,7 +9,9 @@ namespace Identity.Application.Abstractions;
 
 public interface IOtpChallengeRepository
 {
+    /// <summary>The newest pending challenge for this destination and purpose issued on <paramref name="tenantId" />.</summary>
     Task<OtpChallenge?> FindLatestPendingAsync(
+        TenantId tenantId,
         OtpChannel channel,
         string destination,
         OtpPurpose purpose,
@@ -53,11 +56,15 @@ public interface IIdentityUserRepository
         ApplicationUserId id,
         CancellationToken cancellationToken);
 
+    /// <summary>Finds the user with this phone number in one identity realm (numbers are unique per realm).</summary>
     Task<ApplicationUser?> FindByPhoneAsync(
+        IdentityRealm realm,
         PhoneNumber phone,
         CancellationToken cancellationToken);
 
+    /// <summary>Finds the user with this e-mail address in one identity realm.</summary>
     Task<ApplicationUser?> FindByEmailAsync(
+        IdentityRealm realm,
         EmailAddress email,
         CancellationToken cancellationToken);
 

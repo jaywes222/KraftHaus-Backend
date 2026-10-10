@@ -43,6 +43,8 @@ try
 
     app.UseModules();
 
+    app.UseModuleAwareAuthorization();
+
     app.MapModuleEndpoints();
 
     app.MapCustomHealthChecks();
@@ -76,9 +78,9 @@ finally
 
 namespace Host
 {
-    public class Program
+    public partial class Program
     {
-        protected Program()
+        public Program()
         {
         }
     }

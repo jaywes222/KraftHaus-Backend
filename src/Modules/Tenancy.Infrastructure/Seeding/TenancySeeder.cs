@@ -1,4 +1,5 @@
 using Common.Application.Persistence;
+using Common.Domain.Tenancy;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Hosting;
 using Tenancy.Application.Abstractions;

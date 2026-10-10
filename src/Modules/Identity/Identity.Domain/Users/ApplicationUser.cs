@@ -1,10 +1,9 @@
 using Common.Domain.Aggregates;
 using Common.Domain.ResultMonad;
 using Common.Domain.StronglyTypedIds;
+using Common.Domain.Tenancy;
 using Identity.Domain.Common;
 using Identity.Domain.Events;
-using Tenancy.Domain.Common;
-using Tenancy.Domain.Tenants;
 
 namespace Identity.Domain.Users;
 
@@ -29,6 +28,10 @@ public sealed class ApplicationUser(ApplicationUserId id)
     public string DisplayName { get; private set; } = default!;
 
     public UserStatus Status { get; private set; }
+
+    /// <summary>True when the user lives in <paramref name="realm" /> (the directory a host signs people into).</summary>
+    public bool IsIn(IdentityRealm realm) =>
+        Scope == realm.Scope && TenantId == realm.TenantId;
 
     public DateTimeOffset? LastSignedInAt { get; private set; }
 

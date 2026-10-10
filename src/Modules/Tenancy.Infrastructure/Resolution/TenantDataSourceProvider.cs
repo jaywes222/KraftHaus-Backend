@@ -1,4 +1,5 @@
 using System.Collections.Concurrent;
+using Common.Domain.Tenancy;
 using Npgsql;
 using Tenancy.Application.Abstractions;
 using Tenancy.Domain.Common;

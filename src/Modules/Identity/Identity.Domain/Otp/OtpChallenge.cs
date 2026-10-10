@@ -2,6 +2,7 @@ using System.Security.Cryptography;
 using System.Text;
 using Common.Domain.Aggregates;
 using Common.Domain.ResultMonad;
+using Common.Domain.Tenancy;
 using Identity.Domain.Common;
 using Identity.Domain.Events;
 
@@ -26,6 +27,12 @@ public sealed class OtpChallenge(OtpChallengeId id)
     }
 
     public OtpChannel Channel { get; private set; }
+
+    /// <summary>
+    ///     The tenant whose host issued the challenge. A code can only be redeemed on that tenant's hosts, so a code
+    ///     requested on one tenant's site cannot sign anyone into another tenant. Null only for legacy rows.
+    /// </summary>
+    public TenantId? TenantId { get; private set; }
 
     public string Destination { get; private set; } = string.Empty;
 
@@ -54,7 +61,8 @@ public sealed class OtpChallenge(OtpChallengeId id)
         string destination,
         OtpPurpose purpose,
         string codeHash,
-        DateTimeOffset now)
+        DateTimeOffset now,
+        TenantId? tenantId)
     {
         if (string.IsNullOrWhiteSpace(destination))
         {
@@ -92,6 +100,7 @@ public sealed class OtpChallenge(OtpChallengeId id)
         var challenge = new OtpChallenge(id)
         {
             Channel = channel,
+            TenantId = tenantId,
             Destination = destination.Trim(),
             Purpose = purpose,
             CodeHash = codeHash,
@@ -210,6 +219,10 @@ public sealed class OtpChallenge(OtpChallengeId id)
 
         RaiseEvent(new OtpSuperseded(Id));
     }
+
+    /// <summary>True when the challenge was issued by a host of <paramref name="tenantId" />.</summary>
+    public bool BelongsTo(TenantId tenantId) =>
+        TenantId == tenantId;
 
     public bool IsExpired(DateTimeOffset now) =>
         Status == OtpChallengeStatus.Pending &&

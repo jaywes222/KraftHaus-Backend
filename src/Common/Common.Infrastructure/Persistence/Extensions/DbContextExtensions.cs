@@ -67,6 +67,7 @@ public static class DbContextExtensions
 
         var entries = await query
             .OrderByDescending(e => e.CreatedOn)
+            .ThenByDescending(e => e.Version)
             .Skip(request.Skip)
             .Take(request.PageSize)
             .ToListAsync(cancellationToken);

@@ -1,3 +1,4 @@
+using Common.Domain.Tenancy;
 using Common.Infrastructure.Persistence.ValueConverters;
 using Microsoft.EntityFrameworkCore;
 using Tenancy.Domain.Common;

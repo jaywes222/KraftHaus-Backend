@@ -15,6 +15,12 @@ public sealed class KraftHausIdentityServerOptions
     public int AccessTokenLifetimeSeconds { get; init; } = 600;
 
     public bool RequireHttpsMetadata { get; init; } = true;
+
+    /// <summary>
+    ///     How long an "is this session still active" answer is cached per session id when validating access
+    ///     tokens (Spec 08 §6.1: 30 seconds). Revocations on this node evict the entry immediately.
+    /// </summary>
+    public int SessionStatusCacheSeconds { get; init; } = 30;
 }
 
 public sealed class KraftHausIdentityServerOptionsValidator
@@ -47,6 +53,9 @@ public sealed class KraftHausIdentityServerOptionsValidator
 
         RuleFor(x => x.ApiAudience)
             .NotEmpty();
+
+        RuleFor(x => x.SessionStatusCacheSeconds)
+            .InclusiveBetween(0, 300);
 
         RuleFor(x => x.AccessTokenLifetimeSeconds)
             .GreaterThan(0)

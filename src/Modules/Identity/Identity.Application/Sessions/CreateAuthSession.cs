@@ -1,7 +1,9 @@
+using Common.Application.Auditing;
 using Common.Domain.ResultMonad;
 using Common.Domain.StronglyTypedIds;
 using Common.Domain.TimeProvision;
 using Identity.Application.Abstractions;
+using Identity.Application.Auditing;
 using Identity.Domain.Common;
 using Identity.Domain.Sessions;
 
@@ -20,9 +22,31 @@ public sealed class CreateAuthSessionService(
     IRefreshTokenService refreshTokens,
     IAuthSessionRepository sessions,
     IIdentityUnitOfWork unitOfWork,
-    TimeProvider time)
+    TimeProvider time,
+    IIdentityAuditTrail auditTrail)
 {
-    public async Task<Result<CreateAuthSessionResult>> ExecuteAsync(
+    public Task<Result<CreateAuthSessionResult>> ExecuteAsync(
+        CreateAuthSessionCommand command,
+        CancellationToken cancellationToken)
+    {
+        ArgumentNullException.ThrowIfNull(command);
+
+        return ExecuteCoreAsync(command, cancellationToken)
+            .AuditRejectionAsync(
+                auditTrail,
+                error => new IdentityAuditRejection(
+                    IdentityAuditActions.SessionStartRejected,
+                    error)
+                {
+                    SubjectUserId = command.UserId.Value,
+                    Target = new AuditTarget(
+                        IdentityAuditTargets.User,
+                        command.UserId.Value.ToString())
+                },
+                cancellationToken);
+    }
+
+    private async Task<Result<CreateAuthSessionResult>> ExecuteCoreAsync(
         CreateAuthSessionCommand command,
         CancellationToken cancellationToken)
     {

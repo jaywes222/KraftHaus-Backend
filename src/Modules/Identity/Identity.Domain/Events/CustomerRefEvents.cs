@@ -1,6 +1,6 @@
 using Common.Domain.Events;
+using Common.Domain.Tenancy;
 using Identity.Domain.Common;
-using Tenancy.Domain.Tenants;
 
 namespace Identity.Domain.Events;
 

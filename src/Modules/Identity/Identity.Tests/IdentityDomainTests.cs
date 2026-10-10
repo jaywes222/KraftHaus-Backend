@@ -1,12 +1,12 @@
 using System.Net.Mail;
+using Common.Domain.Tenancy;
+using Identity.Domain.Authorization;
 using Identity.Domain.Common;
 using Identity.Domain.Invitations;
 using Identity.Domain.Otp;
 using Identity.Domain.Roles;
 using Identity.Domain.Sessions;
 using Identity.Domain.Users;
-using Tenancy.Domain.Common;
-using Tenancy.Domain.Tenants;
 using Xunit;
 
 namespace Identity.Tests;
@@ -199,6 +199,7 @@ public sealed class IdentityDomainTests
         var user = CreateUser();
         var invitationResult = StaffInvitation.ForPhone(
             new StaffInvitationId(Guid.CreateVersion7()),
+            new TenantId(Guid.CreateVersion7()),
             new Common.Domain.StronglyTypedIds.ApplicationUserId(Guid.CreateVersion7()),
             user.Phone!.Value,
             IdentityRole.TenantAdmin,
@@ -222,6 +223,7 @@ public sealed class IdentityDomainTests
         var user = CreateUser();
         var invitationResult = StaffInvitation.ForPhone(
             new StaffInvitationId(Guid.CreateVersion7()),
+            new TenantId(Guid.CreateVersion7()),
             new Common.Domain.StronglyTypedIds.ApplicationUserId(Guid.CreateVersion7()),
             "+254711111111",
             IdentityRole.TenantAdmin,
@@ -244,6 +246,7 @@ public sealed class IdentityDomainTests
     {
         var invitation = StaffInvitation.ForEmail(
             new StaffInvitationId(Guid.CreateVersion7()),
+            new TenantId(Guid.CreateVersion7()),
             new Common.Domain.StronglyTypedIds.ApplicationUserId(Guid.CreateVersion7()),
             "USER@EXAMPLE.COM",
             IdentityRole.TenantAdmin,
@@ -253,6 +256,97 @@ public sealed class IdentityDomainTests
 
         Assert.False(invitation.IsExpired(_now.AddDays(7).AddTicks(-1)));
         Assert.True(invitation.IsExpired(_now.AddDays(7)));
+    }
+
+    [Fact]
+    public void PermissionMatrixContainsEveryRolePermissionCell()
+    {
+        var roles =
+            Enum.GetValues<IdentityRole>();
+
+        var expectedCellCount =
+            roles.Length *
+            IdentityPermission.All.Count;
+
+        var cells =
+            IdentityPermissionMatrix.GetCells();
+
+        Assert.Equal(
+            expectedCellCount,
+            cells.Count);
+
+        Assert.Equal(
+            expectedCellCount,
+            cells
+                .Select(
+                    x =>
+                        $"{x.Role}:{x.Permission}")
+                .Distinct(StringComparer.Ordinal)
+                .Count());
+    }
+
+    [Theory]
+    [MemberData(nameof(PermissionMatrixCells))]
+    public void PermissionMatrixCellMatchesDeclaredRolePermission(
+    IdentityRole role,
+    string permission,
+    bool expected)
+    {
+        Assert.Equal(
+            expected,
+            IdentityPermissionMatrix.HasPermission(
+                role,
+                permission));
+    }
+
+    public static IEnumerable<object[]> PermissionMatrixCells()
+    {
+        foreach (var (Role, Permission, Allowed) in
+            IdentityPermissionMatrix.GetCells())
+        {
+            yield return
+            [
+                Role,
+                Permission,
+                Allowed
+            ];
+        }
+    }
+
+    [Fact]
+    public void PermissionMatrixAllowsSuperAdminOnPlatform()
+    {
+        Assert.True(
+            IdentityPermissionMatrix.HasPermission(
+                IdentityRole.SuperAdmin,
+                IdentityPermission.UsersManage));
+    }
+
+    [Fact]
+    public void PermissionMatrixAllowsFinanceToApproveTill()
+    {
+        Assert.True(
+            IdentityPermissionMatrix.HasPermission(
+                IdentityRole.Finance,
+                IdentityPermission.TillApprove));
+    }
+
+    [Fact]
+    public void PermissionMatrixDoesNotGiveFinanceKitchenAccess()
+    {
+        Assert.False(
+            IdentityPermissionMatrix.HasPermission(
+                IdentityRole.Finance,
+                IdentityPermission.KitchenHandle));
+    }
+
+    [Fact]
+    public void PermissionMatrixDoesNotGiveKraftStaffRoleManagement()
+    {
+        Assert.False(
+            IdentityPermissionMatrix.HasPermission(
+                IdentityRole.KraftStaff,
+                IdentityPermission.RolesGrant));
     }
 
     private static ApplicationUser CreateUser()

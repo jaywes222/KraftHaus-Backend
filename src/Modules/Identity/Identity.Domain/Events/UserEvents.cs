@@ -1,7 +1,7 @@
 using Common.Domain.Events;
 using Common.Domain.StronglyTypedIds;
+using Common.Domain.Tenancy;
 using Identity.Domain.Users;
-using Tenancy.Domain.Tenants;
 
 namespace Identity.Domain.Events;
 

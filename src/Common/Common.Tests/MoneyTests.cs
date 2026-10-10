@@ -2,14 +2,14 @@ using System.Text.Json;
 using Common.Domain.Currency;
 using Xunit;
 
-namespace Common.Tests.UnitTests;
+namespace Common.Tests;
 
-public class MoneyTests
+public sealed class MoneyTests
 {
     private static readonly Currency _otherCurrency = new("XXX");
 
     [Fact]
-    public void Of_accepts_two_decimals_and_rejects_more()
+    public void OfAcceptsTwoDecimalsAndRejectsMore()
     {
         var valid = Money.Kes(100.25m);
 
@@ -24,7 +24,7 @@ public class MoneyTests
     }
 
     [Fact]
-    public void Of_rejects_amounts_beyond_numeric_18_2()
+    public void OfRejectsAmountsBeyondNumeric182()
     {
         var tooLarge =
             Money.Kes(10_000_000_000_000_000m);
@@ -38,7 +38,7 @@ public class MoneyTests
     }
 
     [Fact]
-    public void Default_money_is_kes_zero()
+    public void DefaultMoneyIsKesZero()
     {
         Money money = default;
 
@@ -54,7 +54,7 @@ public class MoneyTests
     }
 
     [Fact]
-    public void Equal_values_are_equal_regardless_of_trailing_zeros()
+    public void EqualValuesAreEqualRegardlessOfTrailingZeros()
     {
         var ten =
             Money.Kes(10m).Value;
@@ -72,7 +72,7 @@ public class MoneyTests
     }
 
     [Fact]
-    public void Adds_and_subtracts_in_same_currency()
+    public void AddsAndSubtractsInSameCurrency()
     {
         var a =
             Money.Kes(10.50m).Value;
@@ -94,7 +94,7 @@ public class MoneyTests
     }
 
     [Fact]
-    public void Mixed_currency_arithmetic_and_comparison_throw()
+    public void MixedCurrencyArithmeticAndComparisonThrow()
     {
         var kes =
             Money.KesWhole(10);
@@ -113,7 +113,7 @@ public class MoneyTests
     }
 
     [Fact]
-    public void Percent_rounds_as_requested()
+    public void PercentRoundsAsRequested()
     {
         var price =
             Money.KesWhole(1001);
@@ -138,7 +138,7 @@ public class MoneyTests
     }
 
     [Fact]
-    public void Round_to_whole_units_supports_the_three_policies()
+    public void RoundToWholeUnitsSupportsTheThreePolicies()
     {
         var fee =
             Money.KesWhole(1001)
@@ -168,7 +168,7 @@ public class MoneyTests
     }
 
     [Fact]
-    public void Allocate_always_sums_to_the_original()
+    public void AllocateAlwaysSumsToTheOriginal()
     {
         var total =
             Money.Kes(1000.01m).Value;
@@ -194,7 +194,7 @@ public class MoneyTests
     }
 
     [Fact]
-    public void Allocate_supports_uneven_ratios_and_negative_totals()
+    public void AllocateSupportsUnevenRatiosAndNegativeTotals()
     {
         var parts =
             Money.KesWhole(100)
@@ -218,7 +218,7 @@ public class MoneyTests
     }
 
     [Fact]
-    public void Installments_in_whole_shillings_split_fifty_fifty_with_the_odd_shilling_first()
+    public void InstallmentsInWholeShillingsSplitFiftyFiftyWithTheOddShillingFirst()
     {
         var parts =
             Money.KesWhole(1501)
@@ -238,7 +238,7 @@ public class MoneyTests
     }
 
     [Fact]
-    public void Allocate_guards_against_misuse()
+    public void AllocateGuardsAgainstMisuse()
     {
         Assert.Throws<ArgumentException>(
             () => Money.KesWhole(10)
@@ -259,7 +259,7 @@ public class MoneyTests
     }
 
     [Fact]
-    public void ToWholeUnits_requires_a_whole_number_of_shillings()
+    public void ToWholeUnitsRequiresAWholeNumberOfShillings()
     {
         var whole =
             Money.Kes(1500.00m)
@@ -285,7 +285,7 @@ public class MoneyTests
     }
 
     [Fact]
-    public void Comparison_orders_by_amount()
+    public void ComparisonOrdersByAmount()
     {
         var five =
             Money.KesWhole(5);
@@ -303,7 +303,7 @@ public class MoneyTests
     }
 
     [Fact]
-    public void ToString_is_invariant_culture()
+    public void ToStringIsInvariantCulture()
     {
         Assert.Equal(
             "KES 1,500.00",
@@ -311,7 +311,7 @@ public class MoneyTests
     }
 
     [Fact]
-    public void Json_round_trips_and_validates_on_read()
+    public void JsonRoundTripsAndValidatesOnRead()
     {
         var money =
             Money.Kes(1500m).Value;
@@ -344,7 +344,7 @@ public class MoneyTests
     }
 
     [Fact]
-    public void Sum_of_empty_sequence_is_zero_in_the_given_currency()
+    public void SumOfEmptySequenceIsZeroInTheGivenCurrency()
     {
         var result =
             Array.Empty<Money>()

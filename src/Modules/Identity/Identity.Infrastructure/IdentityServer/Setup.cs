@@ -1,5 +1,7 @@
 using Duende.IdentityServer;
 using Duende.IdentityServer.Configuration;
+using Duende.IdentityServer.Hosting.LocalApiAuthentication;
+using Duende.IdentityServer.Validation;
 using Identity.Infrastructure.Options;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
@@ -66,10 +68,26 @@ public static class IdentityServerSetup
                 "IdentityServer AccessTokenLifetimeSeconds must be between 1 and 3600 seconds.")
             .ValidateOnStart();
 
+        var serverOptions =
+            configuration
+                .GetSection(KraftHausIdentityServerOptions.SectionName)
+                .Get<KraftHausIdentityServerOptions>()
+            ?? throw new InvalidOperationException(
+                $"{KraftHausIdentityServerOptions.SectionName} configuration is required.");
+
         services
             .AddIdentityServer(options =>
             {
                 options.EmitStaticAudienceClaim = true;
+
+                // Tokens are issued with this issuer by IdentityServerSessionTokenIssuer; pin it so validation does
+                // not depend on the request host (TestServer, reverse proxy, IIS bindings).
+                options.IssuerUri = serverOptions.IssuerUri;
+
+                // Interactive (cookie) sign-in keeps Duende's own scheme even though API requests authenticate
+                // with bearer tokens by default (see AddAuthentication below).
+                options.Authentication.CookieAuthenticationScheme =
+                    IdentityServerConstants.DefaultCookieAuthenticationScheme;
 
                 options.KeyManagement.SigningAlgorithms =
                 [
@@ -84,6 +102,28 @@ public static class IdentityServerSetup
             .AddInMemoryClients(
                 IdentityServerConfiguration.GetClients(
                     clientOptions));
+
+        // Registered after AddIdentityServer so it replaces Duende's no-op DefaultCustomTokenValidator.
+        services.AddScoped<ICustomTokenValidator, ActiveSessionTokenValidator>();
+
+        // API requests authenticate with the access tokens this host issues (Spec 08 §6.1). Validation covers
+        // signature, issuer, lifetime, the API scope, IsActive (disabled users) and the session revocation check.
+        services
+            .AddAuthentication(options =>
+            {
+                options.DefaultAuthenticateScheme = IdentityServerConstants.LocalApi.AuthenticationScheme;
+                options.DefaultChallengeScheme = IdentityServerConstants.LocalApi.AuthenticationScheme;
+                options.DefaultForbidScheme = IdentityServerConstants.LocalApi.AuthenticationScheme;
+            })
+            .AddLocalApi(
+                IdentityServerConstants.LocalApi.AuthenticationScheme,
+                options =>
+                {
+                    options.ExpectedScope = serverOptions.ApiScope;
+                    options.TokenMode = LocalApiTokenMode.BearerOnly;
+                });
+
+        services.AddMemoryCache();
 
         return services;
     }

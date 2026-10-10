@@ -18,8 +18,19 @@ internal static class BuilderExtensions
             .AddJsonFile(
                 $"appsettings.{builder.Environment.EnvironmentName}.json",
                 optional: true,
-                reloadOnChange: true)
-            .AddEnvironmentVariables();
+                reloadOnChange: true);
+
+        // Re-add user secrets after the JSON files: CreateBuilder loads them first, so without this the JSON files
+        // above would silently override local secrets such as connection strings.
+        if (builder.Environment.IsDevelopment())
+        {
+            builder.Configuration.AddUserSecrets(
+                typeof(BuilderExtensions).Assembly,
+                optional: true,
+                reloadOnChange: true);
+        }
+
+        builder.Configuration.AddEnvironmentVariables();
 
         return builder;
     }

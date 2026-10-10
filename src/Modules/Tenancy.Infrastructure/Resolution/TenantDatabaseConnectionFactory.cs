@@ -1,3 +1,4 @@
+using Common.Domain.Tenancy;
 using Microsoft.Extensions.Options;
 using Npgsql;
 using Tenancy.Application.Abstractions;

@@ -1,3 +1,4 @@
+using Common.Domain.Tenancy;
 using Microsoft.Extensions.Caching.Memory;
 using Tenancy.Application.Abstractions;
 using Tenancy.Domain.Common;

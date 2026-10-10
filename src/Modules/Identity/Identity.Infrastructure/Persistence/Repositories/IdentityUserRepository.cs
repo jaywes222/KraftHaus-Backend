@@ -10,22 +10,28 @@ internal sealed class IdentityUserRepository(
     : IIdentityUserRepository
 {
     public Task<ApplicationUser?> FindByPhoneAsync(
+        IdentityRealm realm,
         PhoneNumber phone,
         CancellationToken cancellationToken)
     {
         return db.Users
             .SingleOrDefaultAsync(
-                x => x.Phone == phone,
+                x => x.Scope == realm.Scope &&
+                     x.TenantId == realm.TenantId &&
+                     x.Phone == phone,
                 cancellationToken);
     }
 
     public Task<ApplicationUser?> FindByEmailAsync(
+        IdentityRealm realm,
         EmailAddress email,
         CancellationToken cancellationToken)
     {
         return db.Users
             .SingleOrDefaultAsync(
-                x => x.Email == email,
+                x => x.Scope == realm.Scope &&
+                     x.TenantId == realm.TenantId &&
+                     x.Email == email,
                 cancellationToken);
     }
 

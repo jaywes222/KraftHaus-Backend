@@ -1,3 +1,4 @@
+using Common.Domain.Tenancy;
 using Tenancy.Domain.Common;
 using Tenancy.Domain.Tenants;
 using Xunit;

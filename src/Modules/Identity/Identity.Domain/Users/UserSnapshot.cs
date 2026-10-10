@@ -1,5 +1,5 @@
 using Common.Domain.StronglyTypedIds;
-using Tenancy.Domain.Tenants;
+using Common.Domain.Tenancy;
 
 namespace Identity.Domain.Users;
 

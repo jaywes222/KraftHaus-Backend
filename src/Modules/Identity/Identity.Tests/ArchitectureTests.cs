@@ -1,4 +1,4 @@
-using System.Xml.Linq;
+﻿using System.Xml.Linq;
 using Xunit;
 
 namespace Identity.Tests;
@@ -6,30 +6,30 @@ namespace Identity.Tests;
 public sealed class ArchitectureTests
 {
     [Fact]
-    public void IdentityProjectsDoNotReferenceOtherModuleProjects()
+    public void IdentityProjectsReferenceOnlyCommonAndIdentityProjects()
     {
         var root = FindRepositoryRoot();
+        var allowedRoots = new[]
+        {
+            Path.Combine(root, "src", "Common") + Path.DirectorySeparatorChar,
+            Path.Combine(root, "src", "Modules", "Identity") + Path.DirectorySeparatorChar
+        };
+
         var projectFiles = Directory.GetFiles(
             Path.Combine(root, "src", "Modules", "Identity"),
             "*.csproj",
             SearchOption.AllDirectories);
 
+        Assert.NotEmpty(projectFiles);
+
         foreach (var projectFile in projectFiles)
         {
-            var project = XDocument.Load(projectFile);
-            var references = project
-                .Descendants("ProjectReference")
-                .Select(x => (string?)x.Attribute("Include"))
-                .Where(x => x is not null)
-                .Select(x => x!)
-                .ToArray();
-
-            Assert.DoesNotContain(
-                references,
-                x =>
-                    x.Contains(
-                        Path.Combine("Modules", "Tenancy"),
-                        StringComparison.OrdinalIgnoreCase));
+            foreach (var reference in ResolveProjectReferences(projectFile))
+            {
+                Assert.True(
+                    allowedRoots.Any(allowed => reference.StartsWith(allowed, StringComparison.OrdinalIgnoreCase)),
+                    $"{Path.GetFileName(projectFile)} references {reference}, outside src/Common and the Identity module.");
+            }
         }
     }
 
@@ -45,20 +45,36 @@ public sealed class ArchitectureTests
             "Identity.Infrastructure",
             "Identity.Infrastructure.csproj");
 
-        var project = XDocument.Load(projectFile);
-
-        var references = project
-            .Descendants("ProjectReference")
-            .Select(x => (string?)x.Attribute("Include"))
-            .Where(x => x is not null)
-            .Select(x => x!)
-            .ToArray();
+        var expected = Path.Combine(
+            root,
+            "src",
+            "Modules",
+            "Identity",
+            "Identity.Application",
+            "Identity.Application.csproj");
 
         Assert.Contains(
-            references,
-            x => x.Contains(
-                Path.Combine("Identity.Application", "Identity.Application.csproj"),
-                StringComparison.OrdinalIgnoreCase));
+            ResolveProjectReferences(projectFile),
+            x => string.Equals(x, expected, StringComparison.OrdinalIgnoreCase));
+    }
+
+    /// <summary>
+    ///     Resolves ProjectReference paths to absolute, platform-normalised paths. Project files use Windows
+    ///     separators; normalising them keeps these checks meaningful on Linux CI as well.
+    /// </summary>
+    private static string[] ResolveProjectReferences(string projectFile)
+    {
+        var directory = Path.GetDirectoryName(projectFile)!;
+
+        return XDocument.Load(projectFile)
+            .Descendants("ProjectReference")
+            .Select(x => (string?)x.Attribute("Include"))
+            .Where(x => !string.IsNullOrWhiteSpace(x))
+            .Select(x => Path.GetFullPath(
+                Path.Combine(
+                    directory,
+                    x!.Replace('\\', Path.DirectorySeparatorChar))))
+            .ToArray();
     }
 
     [Fact]

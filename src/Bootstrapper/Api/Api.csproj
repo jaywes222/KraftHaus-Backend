@@ -4,6 +4,8 @@
     <TargetFramework>net10.0</TargetFramework>
     <Nullable>enable</Nullable>
     <ImplicitUsings>enable</ImplicitUsings>
+    <!-- Development secrets (connection strings, signing material) live in `dotnet user-secrets`, never in git. -->
+    <UserSecretsId>krafthaus-api-6f3c1d2e-4b7a-4e19-9a52-0c8d7e1f2a90</UserSecretsId>
   </PropertyGroup>
 
   <ItemGroup>
@@ -59,6 +61,15 @@
   </ItemGroup>
 
   <ItemGroup>
+    <InternalsVisibleTo Include="Api.IntegrationTests" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <!-- Integration-test configuration (placeholders only); never ship it with a deployment. -->
+    <Content Update="appsettings.Testing.json" CopyToPublishDirectory="Never" />
+  </ItemGroup>
+
+  <ItemGroup>
     <ProjectReference Include="..\..\Common\Common.Application\Common.Application.csproj" />
     <ProjectReference Include="..\..\Common\Common.Domain\Common.Domain.csproj" />
     <ProjectReference Include="..\..\Common\Common.Endpoints\Common.Endpoints.csproj" />
@@ -71,6 +82,10 @@
     <ProjectReference Include="..\..\Modules\Tenancy\Tenancy.Application\Tenancy.Application.csproj" />
     <ProjectReference Include="..\..\Modules\Tenancy\Tenancy.Domain\Tenancy.Domain.csproj" />
     <ProjectReference Include="..\..\Modules\Identity\Identity.Infrastructure\Identity.Infrastructure.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <Folder Include="keys\" />
   </ItemGroup>
 
 </Project>

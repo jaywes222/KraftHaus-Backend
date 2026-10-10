@@ -1,9 +1,9 @@
 using Common.Domain.Aggregates;
 using Common.Domain.ResultMonad;
+using Common.Domain.Tenancy;
 using Identity.Domain.Common;
 using Identity.Domain.Events;
 using Identity.Domain.Users;
-using Tenancy.Domain.Tenants;
 
 namespace Identity.Domain.Customers;
 

@@ -24,7 +24,7 @@ internal sealed partial class RedisFixedWindowRateLimiter : RateLimiter
         return {count, redis.call('PTTL', KEYS[1])}
         """;
 
-    private static readonly RateLimitLease SuccessLease = new FixedWindowLease(isAcquired: true, retryAfter: null);
+    private static readonly RateLimitLease _successLease = new FixedWindowLease(isAcquired: true, retryAfter: null);
 
     private readonly IConnectionMultiplexer _redis;
     private readonly string _key;
@@ -88,7 +88,7 @@ internal sealed partial class RedisFixedWindowRateLimiter : RateLimiter
 
             if (count <= _permitLimit)
             {
-                return SuccessLease;
+                return _successLease;
             }
 
             var retryAfter = pttlMs > 0 ? TimeSpan.FromMilliseconds(pttlMs) : _window;
@@ -97,7 +97,7 @@ internal sealed partial class RedisFixedWindowRateLimiter : RateLimiter
         catch (RedisException ex)
         {
             LogRedisUnavailable(_logger, _key, _failOpen ? "open" : "closed", ex);
-            return _failOpen ? SuccessLease : new FixedWindowLease(isAcquired: false, retryAfter: null);
+            return _failOpen ? _successLease : new FixedWindowLease(isAcquired: false, retryAfter: null);
         }
     }
 

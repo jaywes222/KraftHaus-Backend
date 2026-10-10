@@ -137,6 +137,9 @@ namespace Identity.Infrastructure.Persistence.Migrations
                         .HasMaxLength(32)
                         .HasColumnType("character varying(32)");
 
+                    b.Property<Guid>("TenantId")
+                        .HasColumnType("uuid");
+
                     b.Property<long>("Version")
                         .IsConcurrencyToken()
                         .HasColumnType("bigint")
@@ -145,6 +148,8 @@ namespace Identity.Infrastructure.Persistence.Migrations
                     b.HasKey("Id");
 
                     b.HasIndex("Destination", "Status");
+
+                    b.HasIndex("TenantId", "Status");
 
                     b.ToTable("staff_invitation", "identity");
                 });
@@ -200,6 +205,9 @@ namespace Identity.Infrastructure.Persistence.Migrations
                         .HasMaxLength(32)
                         .HasColumnType("character varying(32)");
 
+                    b.Property<Guid?>("TenantId")
+                        .HasColumnType("uuid");
+
                     b.Property<DateTimeOffset?>("VerifiedAt")
                         .HasColumnType("timestamp with time zone");
 
@@ -212,8 +220,8 @@ namespace Identity.Infrastructure.Persistence.Migrations
 
                     b.HasIndex("ExpiresAt");
 
-                    b.HasIndex("Channel", "Destination", "Purpose", "IssuedAt")
-                        .IsDescending(false, false, false, true);
+                    b.HasIndex("TenantId", "Channel", "Destination", "Purpose", "IssuedAt")
+                        .IsDescending(false, false, false, false, true);
 
                     b.ToTable("otp_challenge", "identity");
                 });
@@ -409,13 +417,17 @@ namespace Identity.Infrastructure.Persistence.Migrations
 
                     b.HasKey("Id");
 
-                    b.HasIndex("Scope", "Email")
+                    b.HasIndex("Scope", "TenantId", "Email")
                         .IsUnique()
                         .HasFilter("\"Email\" IS NOT NULL");
 
-                    b.HasIndex("Scope", "Phone")
+                    NpgsqlIndexBuilderExtensions.AreNullsDistinct(b.HasIndex("Scope", "TenantId", "Email"), false);
+
+                    b.HasIndex("Scope", "TenantId", "Phone")
                         .IsUnique()
                         .HasFilter("\"Phone\" IS NOT NULL");
+
+                    NpgsqlIndexBuilderExtensions.AreNullsDistinct(b.HasIndex("Scope", "TenantId", "Phone"), false);
 
                     b.ToTable("application_user", "identity");
                 });
@@ -475,6 +487,103 @@ namespace Identity.Infrastructure.Persistence.Migrations
                     b.HasIndex("UserId", "Kind", "RecordedAt");
 
                     b.ToTable("user_consent", "identity");
+                });
+
+            modelBuilder.Entity("Identity.Infrastructure.Auditing.IdentityAuditRecord", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("Action")
+                        .IsRequired()
+                        .HasMaxLength(64)
+                        .HasColumnType("character varying(64)");
+
+                    b.Property<string>("ActorId")
+                        .HasMaxLength(64)
+                        .HasColumnType("character varying(64)");
+
+                    b.Property<string>("ActorSessionId")
+                        .HasMaxLength(64)
+                        .HasColumnType("character varying(64)");
+
+                    b.Property<string>("ActorType")
+                        .IsRequired()
+                        .HasMaxLength(16)
+                        .HasColumnType("character varying(16)");
+
+                    b.Property<string>("Metadata")
+                        .IsRequired()
+                        .HasColumnType("jsonb");
+
+                    b.Property<string>("Module")
+                        .IsRequired()
+                        .HasMaxLength(32)
+                        .HasColumnType("character varying(32)");
+
+                    b.Property<DateTimeOffset>("OccurredAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<string>("Outcome")
+                        .IsRequired()
+                        .HasMaxLength(16)
+                        .HasColumnType("character varying(16)");
+
+                    b.Property<string>("ReasonCode")
+                        .HasMaxLength(128)
+                        .HasColumnType("character varying(128)");
+
+                    b.Property<string>("RequestId")
+                        .HasMaxLength(128)
+                        .HasColumnType("character varying(128)");
+
+                    b.Property<Guid?>("SubjectUserId")
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("TargetId")
+                        .HasMaxLength(128)
+                        .HasColumnType("character varying(128)");
+
+                    b.Property<string>("TargetType")
+                        .HasMaxLength(64)
+                        .HasColumnType("character varying(64)");
+
+                    b.Property<Guid?>("TenantId")
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("TraceId")
+                        .HasMaxLength(64)
+                        .HasColumnType("character varying(64)");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("OccurredAt")
+                        .IsDescending()
+                        .HasDatabaseName("IX_security_audit_log_OccurredAt");
+
+                    b.HasIndex("TraceId")
+                        .HasDatabaseName("IX_security_audit_log_TraceId");
+
+                    b.HasIndex("Action", "OccurredAt")
+                        .IsDescending(false, true)
+                        .HasDatabaseName("IX_security_audit_log_Action_OccurredAt");
+
+                    b.HasIndex("ActorId", "OccurredAt")
+                        .IsDescending(false, true)
+                        .HasDatabaseName("IX_security_audit_log_ActorId_OccurredAt");
+
+                    b.HasIndex("SubjectUserId", "OccurredAt")
+                        .IsDescending(false, true)
+                        .HasDatabaseName("IX_security_audit_log_SubjectUserId_OccurredAt");
+
+                    b.HasIndex("TargetType", "TargetId")
+                        .HasDatabaseName("IX_security_audit_log_Target");
+
+                    b.HasIndex("TenantId", "OccurredAt")
+                        .IsDescending(false, true)
+                        .HasDatabaseName("IX_security_audit_log_TenantId_OccurredAt");
+
+                    b.ToTable("security_audit_log", "identity");
                 });
 
             modelBuilder.Entity("Identity.Domain.Users.ConsentRecord", b =>

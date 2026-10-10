@@ -1,7 +1,7 @@
 using Common.Domain.TimeProvision;
 using Xunit;
 
-namespace Common.Tests.UnitTests;
+namespace Common.Tests;
 
 public class NairobiTimeTests
 {
@@ -16,7 +16,7 @@ public class NairobiTimeTests
         => new(y, m, d, h, min, 0, TimeSpan.Zero);
 
     [Fact]
-    public void Late_evening_utc_is_the_next_day_in_nairobi()
+    public void LateEveningUtcIsTheNextDayInNairobi()
     {
         // 21:30 UTC on 6 Nov is 00:30 on 7 Nov in Nairobi (event day)
         var instant = Utc(2026, 11, 6, 21, 30);
@@ -26,7 +26,7 @@ public class NairobiTimeTests
     }
 
     [Fact]
-    public void Day_boundaries_are_half_open_in_utc()
+    public void DayBoundariesAreHalfOpenInUtc()
     {
         var day = new DateOnly(2026, 11, 7);
         Assert.Equal(Utc(2026, 11, 6, 21), NairobiTime.StartOfDayUtc(day));
@@ -34,11 +34,11 @@ public class NairobiTimeTests
     }
 
     [Fact]
-    public void At_builds_a_utc_instant_from_nairobi_wall_clock()
+    public void AtBuildsAUtcInstantFromNairobiWallClock()
         => Assert.Equal(Utc(2026, 11, 7, 15), NairobiTime.At(new DateOnly(2026, 11, 7), new TimeOnly(18, 0)));
 
     [Fact]
-    public void Provider_helpers_read_the_injected_clock()
+    public void ProviderHelpersReadTheInjectedClock()
     {
         var clock = new TestClock(Utc(2026, 11, 6, 21, 30));
         Assert.Equal(new DateOnly(2026, 11, 7), clock.GetNairobiToday());
@@ -47,7 +47,7 @@ public class NairobiTimeTests
     }
 
     [Fact]
-    public void Deadline_has_passed_at_the_exact_instant()
+    public void DeadlineHasPassedAtTheExactInstant()
     {
         var deadline = Utc(2026, 11, 1, 12);
         var clock = new TestClock(deadline.AddTicks(-1));
@@ -57,7 +57,7 @@ public class NairobiTimeTests
     }
 
     [Fact]
-    public void Zone_has_no_daylight_saving_and_a_fixed_offset()
+    public void ZoneHasNoDaylightSavingAndAFixedOffset()
     {
         Assert.False(NairobiTime.Zone.SupportsDaylightSavingTime);
         Assert.Equal(TimeSpan.FromHours(3), NairobiTime.Zone.BaseUtcOffset);

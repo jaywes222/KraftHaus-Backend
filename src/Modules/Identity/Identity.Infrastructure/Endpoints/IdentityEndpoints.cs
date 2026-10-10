@@ -1,3 +1,4 @@
+using Common.Application.Auth;
 using Common.Application.EndpointFilters;
 using Common.Domain.ResultMonad;
 using Identity.Application.Auth;
@@ -8,9 +9,8 @@ using Identity.Domain.Otp;
 using Identity.Domain.Sessions;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Http;
+using Microsoft.AspNetCore.RateLimiting;
 using Microsoft.AspNetCore.Routing;
-using Tenancy.Domain.Common;
-using Tenancy.Domain.Tenants;
 
 namespace Identity.Infrastructure.Endpoints;
 
@@ -19,44 +19,43 @@ internal static class IdentityEndpoints
     public static void MapIdentityEndpoints(
         this IEndpointRouteBuilder endpoints)
     {
-        var group =
-            endpoints
-                .MapGroup("/api/identity")
-                .WithTags("Identity");
+        var group = endpoints
+            .MapGroup("/api/identity")
+            .WithTags("Identity");
 
         MapOtpEndpoints(group);
         MapSessionEndpoints(group);
+        group.MapStaffEndpoints();
     }
 
     private static void MapOtpEndpoints(
         RouteGroupBuilder group)
     {
         group
-            .MapPost(
-                "/otp/request",
-                RequestOtp)
-            .AddEndpointFilter<ResultToResponseTransformer<RequestOtpResult>>();
+            .MapPost("/otp/request", RequestOtp)
+            .RequireRateLimiting("Sms")
+            .AddEndpointFilter<
+                ResultToResponseTransformer<RequestOtpResult>>();
 
         group
-            .MapPost(
-                "/otp/verify",
-                VerifyOtp)
-            .AddEndpointFilter<ResultToResponseTransformer<CompleteOtpLoginResult>>();
+            .MapPost("/otp/verify", VerifyOtp)
+            .RequireRateLimiting("OtpVerify")
+            .AddEndpointFilter<
+                ResultToResponseTransformer<CompleteOtpLoginResult>>();
     }
 
     private static void MapSessionEndpoints(
         RouteGroupBuilder group)
     {
         group
-            .MapPost(
-                "/session/refresh",
-                RefreshSession)
-            .AddEndpointFilter<ResultToResponseTransformer<RefreshAuthSessionResult>>();
+            .MapPost("/session/refresh", RefreshSession)
+            .RequireRateLimiting("TokenRefresh")
+            .AddEndpointFilter<
+                ResultToResponseTransformer<RefreshAuthSessionResult>>();
 
         group
-            .MapPost(
-                "/session/revoke",
-                RevokeSession)
+            .MapPost("/session/revoke", RevokeSession)
+            .RequireAuthorization()
             .AddEndpointFilter<ResultToResponseTransformer>();
     }
 
@@ -83,8 +82,6 @@ internal static class IdentityEndpoints
                 request.ChallengeId,
                 request.Code,
                 request.DeviceId,
-                request.Scope,
-                request.TenantId,
                 request.DisplayName,
                 request.AcceptTerms,
                 request.AcceptPrivacy),
@@ -103,14 +100,28 @@ internal static class IdentityEndpoints
             cancellationToken);
     }
 
+    /// <summary>
+    ///     Signs out the caller's own session. The session id comes from the validated access token (<c>sid</c>),
+    ///     never from the request, so one user can never revoke another user's session.
+    /// </summary>
     private static Task<Result> RevokeSession(
-        RevokeSessionRequest request,
+        ICurrentUser currentUser,
         RevokeAuthSessionService service,
         CancellationToken cancellationToken)
     {
+        if (currentUser.Id.IsEmpty ||
+            !Guid.TryParse(currentUser.SessionId, out var sessionId))
+        {
+            return Task.FromResult<Result>(
+                IdentityErrors.Unauthorized(
+                    "SessionRequired",
+                    "A session-bound access token is required."));
+        }
+
         return service.ExecuteAsync(
             new RevokeAuthSessionCommand(
-                request.SessionId),
+                new AuthSessionId(sessionId),
+                currentUser.Id),
             cancellationToken);
     }
 }
@@ -124,8 +135,6 @@ internal sealed record VerifyOtpRequest(
     OtpChallengeId ChallengeId,
     string Code,
     string DeviceId,
-    IdentityScope Scope,
-    TenantId? TenantId,
     string DisplayName,
     bool AcceptTerms,
     bool AcceptPrivacy);
@@ -133,6 +142,3 @@ internal sealed record VerifyOtpRequest(
 internal sealed record RefreshSessionRequest(
     AuthSessionId SessionId,
     string RefreshToken);
-
-internal sealed record RevokeSessionRequest(
-    AuthSessionId SessionId);

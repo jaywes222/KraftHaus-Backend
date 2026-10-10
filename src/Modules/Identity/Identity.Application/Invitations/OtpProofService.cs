@@ -1,3 +1,4 @@
+using Common.Domain.Tenancy;
 using Identity.Application.Abstractions;
 using Identity.Domain.Otp;
 
@@ -11,6 +12,7 @@ public sealed class OtpProofService(
     : IOtpProofService
 {
     public async Task<bool> VerifyAsync(
+        TenantId tenantId,
         OtpChannel channel,
         string destination,
         string code,
@@ -18,6 +20,7 @@ public sealed class OtpProofService(
     {
         var challenge =
             await challenges.FindLatestPendingAsync(
+                tenantId,
                 channel,
                 destination,
                 OtpPurpose.StaffInvitation,

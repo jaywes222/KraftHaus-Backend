@@ -1,3 +1,4 @@
+using Common.Application.Tenancy;
 using Common.Application.Persistence;
 using Microsoft.Extensions.DependencyInjection;
 using Tenancy.Application.Abstractions;
@@ -23,6 +24,10 @@ public static class Setup
         services.AddScoped<TenantContext>();
         services.AddScoped<ITenantContext>(
             sp => sp.GetRequiredService<TenantContext>());
+
+        // Exposes the resolved tenant to other modules (e.g. audit stamping) without a Tenancy reference.
+        services.AddScoped<ICurrentTenant, CurrentTenant>();
+        services.AddScoped<ITenantDirectory, TenantDirectory>();
 
         services.AddScoped<ITenantScopeFactory, TenantScopeFactory>();
 

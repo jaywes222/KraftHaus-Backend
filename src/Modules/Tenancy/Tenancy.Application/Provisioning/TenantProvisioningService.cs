@@ -1,5 +1,6 @@
 using Common.Application.Persistence;
 using Common.Domain.ResultMonad;
+using Common.Domain.Tenancy;
 using Tenancy.Application.Abstractions;
 using Tenancy.Domain.Common;
 using Tenancy.Domain.Tenants;

@@ -82,6 +82,19 @@ dlldata.c
 # Benchmark Results
 BenchmarkDotNet.Artifacts/
 
+# Documentation
+docs/
+documentation/
+*.md
+*.rst
+
+# Scripts
+scripts/
+*.sh
+*.ps1
+*.bat
+*.cmd
+
 # .NET Core
 project.lock.json
 project.fragment.lock.json
@@ -430,3 +443,13 @@ FodyWeavers.xsd
 
 # Official VS Code C# Dev Kit Extension exclusion
 #*.lscache
+
+# KraftHaus: never commit secrets
+# Duende IdentityServer automatic key management writes signing keys here.
+**/keys/
+# Local secrets; use `dotnet user-secrets` for development connection strings.
+appsettings.*.local.json
+appsettings*.json
+appsettings*.Development.json
+appsettings*.Production.json
+*.pfx

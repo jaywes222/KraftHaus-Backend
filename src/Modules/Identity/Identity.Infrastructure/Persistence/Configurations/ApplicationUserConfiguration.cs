@@ -1,9 +1,9 @@
 using Common.Domain.StronglyTypedIds;
+using Common.Domain.Tenancy;
 using Identity.Domain.Users;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Metadata.Builders;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
-using Tenancy.Domain.Common;
 
 namespace Identity.Infrastructure.Persistence.Configurations;
 
@@ -72,22 +72,30 @@ public sealed class ApplicationUserConfiguration
 
         builder.Property(x => x.LastSignedInAt);
 
+        // Unique per identity realm (scope + tenant). NULLS NOT DISTINCT keeps platform users (TenantId NULL)
+        // unique too; requires PostgreSQL 15+.
         builder.HasIndex(
                 x => new
                 {
                     x.Scope,
+                    x.TenantId,
                     x.Phone
                 })
             .IsUnique()
+            .AreNullsDistinct(false)
             .HasFilter("\"Phone\" IS NOT NULL");
 
+        // Unique per identity realm (scope + tenant). NULLS NOT DISTINCT keeps platform users (TenantId NULL)
+        // unique too; requires PostgreSQL 15+.
         builder.HasIndex(
                 x => new
                 {
                     x.Scope,
+                    x.TenantId,
                     x.Email
                 })
             .IsUnique()
+            .AreNullsDistinct(false)
             .HasFilter("\"Email\" IS NOT NULL");
 
         builder.HasMany(x => x.Consents)

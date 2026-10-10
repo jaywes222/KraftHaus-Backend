@@ -2,17 +2,24 @@ using Common.Application.Options;
 using Common.Application.Persistence;
 using Common.Infrastructure.Resiliency;
 using Identity.Application.Abstractions;
+using Identity.Application.Auditing;
 using Identity.Application.Auth;
 using Identity.Application.Authorization;
 using Identity.Application.Invitations;
 using Identity.Application.Options;
 using Identity.Application.Otp;
 using Identity.Application.Sessions;
+using Identity.Application.Staff;
+using Identity.Application.Users;
+using Identity.Infrastructure.Auditing;
+using Identity.Infrastructure.Authorization;
 using Identity.Infrastructure.Database;
 using Identity.Infrastructure.IdentityServer;
 using Identity.Infrastructure.Options;
+using Identity.Infrastructure.Otp;
 using Identity.Infrastructure.Persistence.Repositories;
 using Identity.Infrastructure.Seeding;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Options;
@@ -26,6 +33,8 @@ public static class Setup
         IConfiguration configuration)
     {
         services.AddIdentityPersistence();
+
+        services.AddIdentityAuditing();
 
         services.AddKraftHausIdentityServer(
             configuration);
@@ -41,28 +50,33 @@ public static class Setup
                IdentityPolicyOptions.SectionName)
            .ValidateOnStart();
 
+        // OtpSender only routes to ISmsGateway / IEmailGateway; the resilient HTTP clients live in those gateways
+        // (Notifications:Sms / Notifications:Email). It is not an HTTP client itself.
+        services.AddScoped<OtpSender>();
+        services.AddScoped<IOtpSender>(sp => ActivatorUtilities.CreateInstance<DevelopmentOtpLogSender>(
+            sp,
+            sp.GetRequiredService<OtpSender>()));
+
         services
-           .AddOptions<SmsOptions>()
-           .BindConfiguration("SmsOptions")
-           .ValidateOnStart();
+            .AddOptions<IdentityDevelopmentOptions>()
+            .BindConfiguration(IdentityDevelopmentOptions.SectionName)
+            .ValidateOnStart();
 
-        services.AddResilientHttpClient<IOtpSender, OtpSender>(
-            (sp, httpClient) =>
-            {
-                var options =
-                    sp.GetRequiredService<IOptions<SmsOptions>>()
-                        .Value;
+        services.AddSingleton<
+            IValidateOptions<IdentityDevelopmentOptions>,
+            IdentityDevelopmentOptionsValidator>();
 
-                if (string.IsNullOrWhiteSpace(options.BaseUrl))
-                {
-                    throw new InvalidOperationException(
-                        "SmsOptions.BaseUrl is required.");
-                }
+        services.AddScoped<
+            IPermissionAuthorizationService,
+            PermissionAuthorizationService>();
 
-                httpClient.BaseAddress = new Uri(
-                    options.BaseUrl,
-                    UriKind.Absolute);
-            });
+        services.AddSingleton<
+            IAuthorizationPolicyProvider,
+            PermissionPolicyProvider>();
+
+        services.AddScoped<
+            IAuthorizationHandler,
+            PermissionAuthorizationHandler>();
 
         services.AddScoped<
             ISessionTokenIssuer,
@@ -98,6 +112,16 @@ public static class Setup
             IOtpProofService,
             OtpProofService>();
 
+        services.AddScoped<IStaffInvitationNotifier, StaffInvitationNotifier>();
+        services.AddScoped<AcceptStaffInvitationService>();
+        services.AddScoped<CreateStaffInvitationService>();
+        services.AddScoped<RevokeStaffInvitationService>();
+        services.AddScoped<ListStaffInvitationsService>();
+        services.AddScoped<GrantRoleService>();
+        services.AddScoped<RevokeRoleService>();
+        services.AddScoped<ListUserRolesService>();
+        services.AddScoped<GetCurrentUserService>();
+
         services.AddScoped<RequestOtpService>();
         services.AddScoped<CompleteOtpLoginService>();
 
@@ -112,5 +136,15 @@ public static class Setup
         services.AddScoped<IRefreshTokenService, RefreshTokenService>();
 
         return services;
+    }
+
+    private static void AddIdentityAuditing(
+        this IServiceCollection services)
+    {
+        services.AddSingleton<IdentityAuditEventMapper>();
+        services.AddScoped<IdentityAuditEntryFactory>();
+        services.AddScoped<IdentityAuditSaveChangesInterceptor>();
+        services.AddScoped<IIdentityAuditTrail, IdentityAuditTrail>();
+        services.AddScoped<SessionStatusCacheInvalidator>();
     }
 }

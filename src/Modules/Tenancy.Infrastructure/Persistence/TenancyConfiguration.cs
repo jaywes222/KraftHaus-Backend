@@ -1,5 +1,6 @@
 using Common.Domain.Entities;
 using Common.Domain.StronglyTypedIds;
+using Common.Domain.Tenancy;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Metadata.Builders;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;

@@ -1,4 +1,4 @@
-using System.Reflection;
+ using System.Reflection;
 using System.Text.Json.Serialization;
 using Api.Middlewares;
 using Common.Application.Extensions;
@@ -6,6 +6,7 @@ using Common.Application.JsonConverters;
 using Common.Application.Options;
 using Common.Application.Search;
 using Common.Endpoints.Versioning;
+using Common.Infrastructure.Auditing;
 using Common.Infrastructure.Auth;
 using Common.Infrastructure.Caching;
 using Common.Infrastructure.EventBus;
@@ -64,9 +65,10 @@ internal static partial class Setup
     .AddCommonInterModuleRequests()
     .AddCommonOptions(configuration, env)
     .AddScoped<ISearchLanguageResolver, SearchLanguageResolver>()
-    .AddCommonPersistence()
+    .AddCommonPersistence(configuration)
     .AddCommonFeatureManagement(configuration)
     .AddCommonAuth()
+    .AddCommonAuditing()
 
     .AddCustomMassTransit(configuration, moduleAssemblies)
     .AddCustomHealthChecks(configuration)
@@ -95,12 +97,20 @@ internal static partial class Setup
 
         app.UseRateLimiter();
 
-        if (hasAuth)
-        {
-            app.UseAuthorization();
-        }
-
+        // Authorization is added by UseModuleAwareAuthorization, after the modules' middleware: permission checks
+        // are scoped to the tenant that Tenancy resolves from the host name, so it must run first.
         return app;
+    }
+
+    /// <summary>
+    ///     Adds authorization after <c>UseModules</c>. Order: authentication → module middleware (tenant resolution,
+    ///     which also validates the token's <c>tid</c> against the host) → authorization → endpoints.
+    /// </summary>
+    public static IApplicationBuilder UseModuleAwareAuthorization(this IApplicationBuilder app)
+    {
+        return app.ApplicationServices.GetService<IAuthenticationSchemeProvider>() is null
+            ? app
+            : app.UseAuthorization();
     }
 
     private static IServiceCollection AddCustomCors(

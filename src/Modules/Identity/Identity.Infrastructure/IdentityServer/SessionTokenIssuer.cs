@@ -1,5 +1,6 @@
 using System.Security.Claims;
 using Common.Domain.StronglyTypedIds;
+using Common.Domain.Tenancy;
 using Duende.IdentityServer;
 using Duende.IdentityServer.Services;
 using Identity.Application.Sessions;
@@ -49,7 +50,7 @@ internal sealed class IdentityServerSessionTokenIssuer(
         {
             new(
                 "sub",
-                user.Id.ToString()),
+                user.Id.Value.ToString()),
 
             new(
                 "scope",
@@ -61,7 +62,17 @@ internal sealed class IdentityServerSessionTokenIssuer(
 
             new(
                 "sid",
-                sessionId.ToString())
+                sessionId.Value.ToString()),
+
+            new(
+                "client_id",
+                IdentityServerConfiguration.OtpClientId),
+
+            // Spec 08 §6.1 calls this "scope" (platform | tenant); that name is taken by the OAuth scope claim
+            // Duende validates, so the identity directory travels as "identity_scope".
+            new(
+                IdentityServerConfiguration.IdentityScopeClaim,
+                user.Scope == IdentityScope.Platform ? "platform" : "tenant")
         };
 
         if (user.TenantId.HasValue)
@@ -69,7 +80,7 @@ internal sealed class IdentityServerSessionTokenIssuer(
             claims.Add(
                 new Claim(
                     "tid",
-                    user.TenantId.Value.ToString()));
+                    user.TenantId.Value.Value.ToString()));
         }
 
         return await identityServerTools.IssueJwtAsync(

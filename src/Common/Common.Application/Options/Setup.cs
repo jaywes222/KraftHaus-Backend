@@ -28,7 +28,8 @@ public static class Setup
 
         foreach (var type in optionTypes)
         {
-            var sectionName = type.Name; // Use the class name as the section name
+            // The class name is the section name unless the options declare their own (single source of truth).
+            var sectionName = type.GetCustomAttribute<OptionsSectionAttribute>()?.Path ?? type.Name;
             var section = configuration.GetSection(sectionName);
 
             // Validate settings using FluentValidation

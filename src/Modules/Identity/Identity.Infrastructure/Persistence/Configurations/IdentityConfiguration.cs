@@ -1,5 +1,6 @@
 using Common.Domain.Entities;
 using Common.Domain.StronglyTypedIds;
+using Common.Domain.Tenancy;
 using Identity.Domain.Common;
 using Identity.Domain.Customers;
 using Identity.Domain.Invitations;
@@ -10,7 +11,6 @@ using Identity.Domain.Users;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Metadata.Builders;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
-using Tenancy.Domain.Common;
 
 namespace Identity.Infrastructure.Persistence.Configurations;
 
@@ -52,6 +52,10 @@ internal static class IdentityEfConversions
             .HasColumnName("aggregate_version")
             .IsConcurrencyToken();
     }
+
+    /// <summary>Maps <see cref="TenantId" /> (and <c>TenantId?</c>, where EF passes nulls through) to a uuid column.</summary>
+    internal static ValueConverter<TenantId, DefaultIdType> TenantIdConverter() =>
+        new(x => x.Value, x => new TenantId(x));
 
     internal static ValueConverter<TId, DefaultIdType>
         IdConverter<TId>()

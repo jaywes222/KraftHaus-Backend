@@ -1,4 +1,5 @@
 using Common.Domain.Entities;
+using Common.Domain.Tenancy;
 using Tenancy.Domain.Common;
 
 namespace Tenancy.Domain.Tenants;

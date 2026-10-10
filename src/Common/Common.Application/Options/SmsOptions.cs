@@ -5,18 +5,23 @@ namespace Common.Application.Options;
 
 public enum SmsProvider
 {
-    /// <summary>No-op, logs instead of sending. Non-production only.</summary>
     Dummy,
-    NetGsm
+    NetGsm,
+    MobileSasa,
+    AfricasTalking
 }
 
+[OptionsSection("Notifications:Sms")]
 public class SmsOptions
 {
     /// <summary>"Dummy" (non-production only, no-op) or "NetGsm".</summary>
     public required SmsProvider Provider { get; set; }
 
     /// <summary>NetGSM REST API base URL, e.g. https://api.netgsm.com.tr. Required when Provider is NetGsm.</summary>
-    public string? BaseUrl { get; set; }
+    public required string BaseUrl { get; init; }
+
+    public required string ApiKey { get; init; }
+    public required string SenderId { get; init; }
 
     /// <summary>NetGSM account user code. Required when Provider is NetGsm.</summary>
     public string? UserCode { get; set; }
@@ -31,10 +36,10 @@ public class SmsOptions
     public string? AppName { get; set; }
 
     /// <summary>Per-attempt timeout for the resilient HTTP client calling the SMS provider.</summary>
-    public int AttemptTimeoutSeconds { get; set; }
+    public int AttemptTimeoutSeconds { get; set; } = 10;
 
     /// <summary>Total timeout across all retry attempts for a single send call.</summary>
-    public int TotalRequestTimeoutSeconds { get; set; }
+    public int TotalRequestTimeoutSeconds { get; set; } = 15;
 
     /// <summary>
     /// Max retry attempts for the resilient HTTP client. Kept low (ideally 0-1): an SMS send is
@@ -43,10 +48,10 @@ public class SmsOptions
     public int MaxRetryAttempts { get; set; }
 
     /// <summary>Max SMS sends per phone number per day, enforced by ThrottledSmsGateway.</summary>
-    public int MaxPerPhoneNumberPerDay { get; set; }
+    public int MaxPerPhoneNumberPerDay { get; set; } = 10;
 
     /// <summary>Max SMS sends across all phone numbers per day, enforced by ThrottledSmsGateway.</summary>
-    public int MaxPerDay { get; set; }
+    public int MaxPerDay { get; set; } = 10_000;
 
     /// <summary>
     /// TTL for ThrottledSmsGateway's per-day counters. The counter key buckets by UTC day, so this must
@@ -75,6 +80,26 @@ public class SmsOptionsValidator : CustomValidator<SmsOptions>
         RuleForEach(o => o.Templates.Otp)
             .Must(kv => kv.Value.Contains("{0}", StringComparison.Ordinal))
             .WithMessage("Each Templates.Otp value must contain '{0}' as the OTP placeholder.");
+
+        RuleFor(x => x.BaseUrl)
+            .NotEmpty()
+            .Must(x =>
+                Uri.TryCreate(
+                    x,
+                    UriKind.Absolute,
+                    out _))
+            .WithMessage(
+               "BaseUrl must be a valid absolute URL.");
+
+        RuleFor(x => x.ApiKey)
+            .NotEmpty()
+            .When(x =>
+                x.Provider != SmsProvider.Dummy);
+
+        RuleFor(x => x.SenderId)
+            .NotEmpty()
+            .When(x =>
+                x.Provider != SmsProvider.Dummy);
 
         RuleFor(o => o.ThrottleCounterTtlHours)
             .GreaterThanOrEqualTo(24)

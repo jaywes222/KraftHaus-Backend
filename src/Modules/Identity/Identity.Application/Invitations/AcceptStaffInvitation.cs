@@ -1,6 +1,9 @@
+using Common.Application.Auditing;
+using Common.Application.Tenancy;
 using Common.Domain.ResultMonad;
 using Common.Domain.StronglyTypedIds;
 using Identity.Application.Abstractions;
+using Identity.Application.Auditing;
 using Identity.Application.Authorization;
 using Identity.Domain.Common;
 using Identity.Domain.Invitations;
@@ -25,9 +28,32 @@ public sealed class AcceptStaffInvitationService(
     IIdentityUserRepository users,
     IRoleAssignmentRepository assignments,
     IOtpProofService otpProof,
-    IIdentityUnitOfWork unitOfWork)
+    IIdentityUnitOfWork unitOfWork,
+    TimeProvider time,
+    IIdentityAuditTrail auditTrail,
+    ICurrentTenant currentTenant)
 {
-    public async Task<Result<AcceptStaffInvitationResult>> ExecuteAsync(
+    public Task<Result<AcceptStaffInvitationResult>> ExecuteAsync(
+        AcceptStaffInvitationCommand command,
+        CancellationToken cancellationToken)
+    {
+        ArgumentNullException.ThrowIfNull(command);
+
+        return ExecuteCoreAsync(command, cancellationToken)
+            .AuditRejectionAsync(
+                auditTrail,
+                error => new IdentityAuditRejection(
+                    IdentityAuditActions.InvitationAcceptRejected,
+                    error)
+                {
+                    Target = new AuditTarget(
+                        IdentityAuditTargets.StaffInvitation,
+                        command.InvitationId.Value.ToString())
+                },
+                cancellationToken);
+    }
+
+    private async Task<Result<AcceptStaffInvitationResult>> ExecuteCoreAsync(
         AcceptStaffInvitationCommand command,
         CancellationToken cancellationToken)
     {
@@ -36,14 +62,22 @@ public sealed class AcceptStaffInvitationService(
                 command.InvitationId,
                 cancellationToken);
 
-        if (invitation is null)
+        if (!currentTenant.IsResolved)
+        {
+            return IdentityErrors.InvalidState(
+                "TenantUnresolved",
+                "Accepting an invitation requires a tenant host.");
+        }
+
+        // Invitations from another tenant are invisible here.
+        if (invitation is null || invitation.TenantId != currentTenant.TenantId)
         {
             return Error.NotFound(
                 nameof(command.InvitationId),
                 command.InvitationId);
         }
 
-        var now = DateTimeOffset.UtcNow;
+        var now = time.GetUtcNow();
 
         if (invitation.Status != StaffInvitationStatus.Pending)
         {
@@ -67,6 +101,7 @@ public sealed class AcceptStaffInvitationService(
 
         var verified =
             await otpProof.VerifyAsync(
+                currentTenant.TenantId,
                 MapChannel(invitation.Channel),
                 invitation.Destination,
                 command.Code,
@@ -84,6 +119,9 @@ public sealed class AcceptStaffInvitationService(
 
         var user =
             await FindUserAsync(
+                IdentityRealm.ForHost(
+                    currentTenant.TenantId,
+                    currentTenant.IdentityScope),
                 invitation,
                 cancellationToken);
 
@@ -143,6 +181,7 @@ public sealed class AcceptStaffInvitationService(
     }
 
     private async Task<ApplicationUser?> FindUserAsync(
+        IdentityRealm realm,
         StaffInvitation invitation,
         CancellationToken cancellationToken)
     {
@@ -150,11 +189,13 @@ public sealed class AcceptStaffInvitationService(
         {
             InvitationChannel.Phone =>
                 await FindByPhoneAsync(
+                    realm,
                     invitation.Destination,
                     cancellationToken),
 
             InvitationChannel.Email =>
                 await FindByEmailAsync(
+                    realm,
                     invitation.Destination,
                     cancellationToken),
 
@@ -163,6 +204,7 @@ public sealed class AcceptStaffInvitationService(
     }
 
     private async Task<ApplicationUser?> FindByPhoneAsync(
+        IdentityRealm realm,
         string destination,
         CancellationToken cancellationToken)
     {
@@ -175,11 +217,13 @@ public sealed class AcceptStaffInvitationService(
         }
 
         return await users.FindByPhoneAsync(
+            realm,
             phone.Value!,
             cancellationToken);
     }
 
     private async Task<ApplicationUser?> FindByEmailAsync(
+        IdentityRealm realm,
         string destination,
         CancellationToken cancellationToken)
     {
@@ -192,6 +236,7 @@ public sealed class AcceptStaffInvitationService(
         }
 
         return await users.FindByEmailAsync(
+            realm,
             email.Value!,
             cancellationToken);
     }

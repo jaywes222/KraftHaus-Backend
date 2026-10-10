@@ -18,6 +18,7 @@ public class CustomRateLimitingOptions
     public required FixedWindow CheckRegistration { get; set; }
 
     public required FixedWindow TokenRefresh { get; set; }
+    public required FixedWindow OtpVerify { get; set; }
 
     /// <summary>
     /// Path prefixes the global limiter never applies to. Rate-limiting a persistent connection (e.g.
@@ -68,6 +69,9 @@ public class CustomRateLimitingOptionsValidator : CustomValidator<CustomRateLimi
 
         RuleFor(o => o.TokenRefresh)
             .SetValidator(new FixedWindowValidator());
+
+        RuleFor(o => o.OtpVerify)
+            .SetValidator(new FixedWindowValidator());
 #pragma warning restore CS8620
     }
 }
@@ -77,12 +81,12 @@ public class FixedWindowValidator : CustomValidator<FixedWindow>
     public FixedWindowValidator()
     {
         RuleFor(o => o.Limit)
-            .NotEmpty()
-            .WithMessage("Limit must not be empty.");
+            .GreaterThan(0)
+            .WithMessage("Limit must be greater than 0.");
 
         RuleFor(o => o.PeriodInMs)
-            .NotEmpty()
-            .WithMessage("PeriodInMs must not be empty.");
+            .Must(period => double.IsFinite(period) && period > 0)
+            .WithMessage("PeriodInMs must be a finite number greater than 0.");
 
         RuleFor(o => o.QueueLimit)
             .GreaterThanOrEqualTo(0)
