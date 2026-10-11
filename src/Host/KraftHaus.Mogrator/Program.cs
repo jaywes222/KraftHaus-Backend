@@ -1,4 +1,6 @@
+using Common.Application.Persistence;
 using Common.Domain.ResultMonad;
+using Events.Infrastructure.Database;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 using Tenancy.Application.Abstractions;
@@ -7,6 +9,11 @@ using Tenancy.Infrastructure;
 var builder = Host.CreateApplicationBuilder(args);
 
 builder.Services.AddTenancy();
+
+// Module schemas the initializer applies. Tenant-scoped modules register here so that
+// initialize-all / provision create their tables in every tenant database.
+builder.Services.AddSingleton<IModuleDatabaseRegistry, ModuleDatabaseRegistry>();
+builder.Services.AddEventsMigrations();
 
 using var host = builder.Build();
 

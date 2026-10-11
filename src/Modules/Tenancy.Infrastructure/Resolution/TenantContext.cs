@@ -13,21 +13,27 @@ public sealed class TenantContext : ITenantContext
 
     public bool IsResolved { get; private set; }
 
+    /// <summary>Name of the tenant's own database. Only meaningful when <see cref="IsResolved" /> is true.</summary>
+    public string DatabaseName { get; private set; } = string.Empty;
+
     internal void Set(TenantDescriptor descriptor)
     {
         ArgumentNullException.ThrowIfNull(descriptor);
 
         Set(
             descriptor.TenantId,
-            descriptor.IdentityScope);
+            descriptor.IdentityScope,
+            descriptor.DatabaseName);
     }
 
     internal void Set(
         TenantId tenantId,
-        IdentityScope identityScope)
+        IdentityScope identityScope,
+        string databaseName)
     {
         TenantId = tenantId;
         IdentityScope = identityScope;
+        DatabaseName = databaseName;
         IsResolved = true;
     }
 
@@ -35,6 +41,7 @@ public sealed class TenantContext : ITenantContext
     {
         TenantId = default;
         IdentityScope = default;
+        DatabaseName = string.Empty;
         IsResolved = false;
     }
 }
@@ -54,7 +61,8 @@ public sealed class TenantScopeFactory(
             context.IsResolved
                 ? new TenantContextSnapshot(
                     context.TenantId,
-                    context.IdentityScope)
+                    context.IdentityScope,
+                    context.DatabaseName)
                 : null;
 
         context.Set(descriptor);
@@ -90,11 +98,13 @@ public sealed class TenantScopeFactory(
 
             context.Set(
                 previous.Value.TenantId,
-                previous.Value.IdentityScope);
+                previous.Value.IdentityScope,
+                previous.Value.DatabaseName);
         }
     }
 
     private readonly record struct TenantContextSnapshot(
         TenantId TenantId,
-        IdentityScope IdentityScope);
+        IdentityScope IdentityScope,
+        string DatabaseName);
 }

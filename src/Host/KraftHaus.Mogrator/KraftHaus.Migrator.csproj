@@ -10,6 +10,7 @@
     <ProjectReference Include="..\..\Common\Common.Domain\Common.Domain.csproj" />
     <ProjectReference Include="..\..\Modules\Tenancy.Infrastructure\Tenancy.Infrastructure.csproj" />
     <ProjectReference Include="..\..\Modules\Tenancy\Tenancy.Application\Tenancy.Application.csproj" />
+    <ProjectReference Include="..\..\Modules\Events\Events.Infrastructure\Events.Infrastructure.csproj" />
   </ItemGroup>
 
 </Project>

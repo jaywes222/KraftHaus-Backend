@@ -88,19 +88,21 @@ public sealed class TenancySeeder(
                 cancellationToken);
         }
 
+        // Always run: the initializer is idempotent and applies any tenant-module migrations added since the
+        // development database was first provisioned (e.g. a new Events migration).
+        var connectionString =
+            connectionFactory.Create(
+                tenant.Id,
+                DevelopmentDatabaseName);
+
+        await databaseInitializer.InitializeTenantAsync(
+            tenant.Id.Value,
+            DevelopmentDatabaseName,
+            connectionString,
+            cancellationToken);
+
         if (tenant.Status != TenantStatus.Active)
         {
-            var connectionString =
-                connectionFactory.Create(
-                    tenant.Id,
-                    DevelopmentDatabaseName);
-
-            await databaseInitializer.InitializeTenantAsync(
-                tenant.Id.Value,
-                DevelopmentDatabaseName,
-                connectionString,
-                cancellationToken);
-
             var provisionResult =
                 tenant.MarkProvisioned(
                     DevelopmentDatabaseName);

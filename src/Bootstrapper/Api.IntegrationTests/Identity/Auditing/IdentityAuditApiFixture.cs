@@ -8,6 +8,7 @@ using Microsoft.AspNetCore.TestHost;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.DependencyInjection.Extensions;
 using Npgsql;
+using Tenancy.Application.Abstractions;
 using Tenancy.Domain.Common;
 using Tenancy.Domain.Tenants;
 using Tenancy.Infrastructure.Persistence;
@@ -112,8 +113,29 @@ public sealed class IdentityAuditApiFixture : IAsyncLifetime
         // Forces the host to start (and run module migrations) before any test executes.
         _factory.CreateClient().Dispose();
 
-        TenantId = await SeedTenantAsync("AUDIT-IT", "localhost", "krafthaus_it_tenant");
-        SecondTenantId = await SeedTenantAsync("AUDIT-IT-B", SecondTenantHost, "krafthaus_it_tenant_b");
+        // Each tenant gets its own throw-away tenant database, provisioned like production (Migrator): this
+        // creates the database and applies every tenant-scoped module schema (Events, ...).
+        TenantId = await SeedTenantAsync("AUDIT-IT", "localhost", $"{_databaseName}_t1");
+        SecondTenantId = await SeedTenantAsync("AUDIT-IT-B", SecondTenantHost, $"{_databaseName}_t2");
+
+        TenantDatabaseConnectionString = await ProvisionAsync(TenantId, $"{_databaseName}_t1");
+        SecondTenantDatabaseConnectionString = await ProvisionAsync(SecondTenantId, $"{_databaseName}_t2");
+    }
+
+    /// <summary>The first (localhost) tenant's own database, where tenant-scoped modules keep their tables.</summary>
+    public string TenantDatabaseConnectionString { get; private set; } = string.Empty;
+
+    public string SecondTenantDatabaseConnectionString { get; private set; } = string.Empty;
+
+    private async Task<string> ProvisionAsync(Guid tenantId, string databaseName)
+    {
+        using var scope = Factory.Services.CreateScope();
+        var provisioner = scope.ServiceProvider.GetRequiredService<ITenantProvisioner>();
+
+        var result = await provisioner.ProvisionAsync(tenantId, CancellationToken.None);
+        Assert.False(result.IsFailure, result.Error?.Description);
+
+        return new NpgsqlConnectionStringBuilder(DatabaseConnectionString) { Database = databaseName }.ConnectionString;
     }
 
     public async ValueTask DisposeAsync()
@@ -137,11 +159,12 @@ public sealed class IdentityAuditApiFixture : IAsyncLifetime
             var admin = new NpgsqlConnectionStringBuilder(_adminConnectionString) { Database = "postgres" };
             await using var connection = new NpgsqlConnection(admin.ConnectionString);
             await connection.OpenAsync();
-#pragma warning disable CA2100 // Database name is a generated GUID, not input.
-            await using var drop = new NpgsqlCommand(
-                $"DROP DATABASE IF EXISTS \"{_databaseName}\" WITH (FORCE)",
-                connection);
-            await drop.ExecuteNonQueryAsync();
+#pragma warning disable CA2100 // Database names are generated GUIDs, not input.
+            foreach (var name in new[] { _databaseName, $"{_databaseName}_t1", $"{_databaseName}_t2" })
+            {
+                await using var drop = new NpgsqlCommand($"DROP DATABASE IF EXISTS \"{name}\" WITH (FORCE)", connection);
+                await drop.ExecuteNonQueryAsync();
+            }
 #pragma warning restore CA2100
         }
     }

@@ -30,10 +30,14 @@ public static class IdentityPermissionMatrix
                     IdentityPermission.TillView,
                     IdentityPermission.TillApprove,
                     IdentityPermission.KitchenView,
-                    IdentityPermission.KitchenHandle),
+                    IdentityPermission.KitchenHandle,
+                    IdentityPermission.EventsView,
+                    IdentityPermission.EventsManage,
+                    IdentityPermission.EventsPublish),
 
             [IdentityRole.Finance] =
                 Permissions(
+                    IdentityPermission.EventsView,
                     IdentityPermission.PaymentsView,
                     IdentityPermission.PaymentsManage,
                     IdentityPermission.PaymentsRefund,
@@ -42,6 +46,7 @@ public static class IdentityPermissionMatrix
 
             [IdentityRole.Support] =
                 Permissions(
+                    IdentityPermission.EventsView,
                     IdentityPermission.UsersView,
                     IdentityPermission.TicketsView,
                     IdentityPermission.TicketsManage,

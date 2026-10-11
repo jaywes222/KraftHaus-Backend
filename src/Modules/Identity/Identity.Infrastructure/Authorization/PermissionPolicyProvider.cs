@@ -1,3 +1,4 @@
+using Common.Application.Auth;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.Extensions.Options;
 
@@ -8,7 +9,7 @@ public sealed class PermissionPolicyProvider(
         : DefaultAuthorizationPolicyProvider(options)
 {
     public const string PolicyPrefix =
-        "Permission:";
+        PermissionEndpointExtensions.PolicyPrefix;
 
     public override async Task<AuthorizationPolicy?>
         GetPolicyAsync(string policyName)

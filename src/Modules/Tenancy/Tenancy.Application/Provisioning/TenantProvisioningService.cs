@@ -20,12 +20,9 @@ public sealed class TenantProvisioningService(
             new TenantId(tenantId),
             cancellationToken);
 
-        if (descriptor is null)
-        {
-            return Error.NotFound(nameof(TenantId), tenantId);
-        }
-
-        return await Result.CreateAsync(async () =>
+        return descriptor is null
+            ? (Result)Error.NotFound(nameof(TenantId), tenantId)
+            : await Result.CreateAsync(async () =>
         {
             var connectionString = connectionFactory.Create(
                 descriptor.TenantId,
@@ -48,9 +45,11 @@ public sealed class TenantProvisioningService(
         var tenants = await registry.GetAllAsync(
             cancellationToken);
 
+        // Every tenant owns a tenant database (events, tickets, payments, ...), including the internal KRAFTHAUS
+        // tenant whose *identities* live in the platform database (IdentityScope.Platform, Spec 08 §5.1).
         foreach (var tenant in tenants.Where(
             x => x.Status is not TenantStatus.Disabled &&
-                 x.IdentityScope == IdentityScope.Tenant))
+                 !string.IsNullOrWhiteSpace(x.DatabaseName)))
         {
             var connectionString = connectionFactory.Create(
                 tenant.TenantId,

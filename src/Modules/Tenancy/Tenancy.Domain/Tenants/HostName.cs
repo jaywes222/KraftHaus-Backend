@@ -24,16 +24,13 @@ public sealed class HostName : ValueObject
             };
         }
 
-        if (Uri.CheckHostName(normalized) is not UriHostNameType.Dns)
-        {
-            return new Error
+        return Uri.CheckHostName(normalized) is not UriHostNameType.Dns
+            ? (Result<HostName>)new Error
             {
                 Key = "HostName.Invalid",
                 Description = "Host name must be a valid DNS name."
-            };
-        }
-
-        return new HostName(normalized);
+            }
+            : (Result<HostName>)new HostName(normalized);
     }
 
     public static HostName FromPersistence(string value) => new(value);

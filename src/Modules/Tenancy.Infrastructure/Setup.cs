@@ -29,6 +29,9 @@ public static class Setup
         services.AddScoped<ICurrentTenant, CurrentTenant>();
         services.AddScoped<ITenantDirectory, TenantDirectory>();
 
+        // Lets tenant-scoped modules build their DbContext against the resolved tenant's database.
+        services.AddScoped<ITenantDatabaseConnection, TenantDatabaseConnection>();
+
         services.AddScoped<ITenantScopeFactory, TenantScopeFactory>();
 
         services.AddSingleton<

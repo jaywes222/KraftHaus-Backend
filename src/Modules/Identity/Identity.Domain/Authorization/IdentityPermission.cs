@@ -53,6 +53,16 @@ public static class IdentityPermission
     public const string KitchenHandle =
         "kitchen:handle";
 
+    // Events module (UF-016). Must match Events.Domain.Common.EventsPermission (kept in step by an API test).
+    public const string EventsView =
+        "events:view";
+
+    public const string EventsManage =
+        "events:manage";
+
+    public const string EventsPublish =
+        "events:publish";
+
     public static IReadOnlyList<string> All =>
     [
         UsersView,
@@ -71,6 +81,9 @@ public static class IdentityPermission
         TillView,
         TillApprove,
         KitchenView,
-        KitchenHandle
+        KitchenHandle,
+        EventsView,
+        EventsManage,
+        EventsPublish
     ];
 }
