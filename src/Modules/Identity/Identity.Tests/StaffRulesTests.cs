@@ -83,6 +83,30 @@ public sealed class StaffRulesTests
         Assert.False(await service.HasPermissionAsync(admin.UserId, IdentityPermission.RolesGrant, PermissionScope.Tenant(Guid.CreateVersion7()), CancellationToken.None));
     }
 
+    [Fact]
+    public async Task TenantRolesCoverTheKraftsOfTheirOwnTenantOnly()
+    {
+        var admin = Grant(IdentityRole.TenantAdmin, RoleScopeType.Tenant, _tenant.Value);
+        var service = new PermissionAuthorizationService(new FixedAssignments(admin));
+        var kraft = Guid.CreateVersion7();
+
+        Assert.True(await service.HasPermissionAsync(admin.UserId, IdentityPermission.KitchenHandle, PermissionScope.Kraft(kraft, _tenant.Value), CancellationToken.None));
+        Assert.False(await service.HasPermissionAsync(admin.UserId, IdentityPermission.KitchenHandle, PermissionScope.Kraft(kraft, Guid.CreateVersion7()), CancellationToken.None));
+        Assert.False(await service.HasPermissionAsync(admin.UserId, IdentityPermission.KitchenHandle, PermissionScope.Kraft(kraft), CancellationToken.None));
+    }
+
+    [Fact]
+    public async Task KraftRolesNeverCoverAnotherKraftOrTheTenant()
+    {
+        var kraft = Guid.CreateVersion7();
+        var staff = Grant(IdentityRole.KraftStaff, RoleScopeType.Kraft, kraft);
+        var service = new PermissionAuthorizationService(new FixedAssignments(staff));
+
+        Assert.True(await service.HasPermissionAsync(staff.UserId, IdentityPermission.KitchenHandle, PermissionScope.Kraft(kraft, _tenant.Value), CancellationToken.None));
+        Assert.False(await service.HasPermissionAsync(staff.UserId, IdentityPermission.KitchenHandle, PermissionScope.Kraft(Guid.CreateVersion7(), _tenant.Value), CancellationToken.None));
+        Assert.False(await service.HasPermissionAsync(staff.UserId, IdentityPermission.KitchenView, PermissionScope.Tenant(_tenant.Value), CancellationToken.None));
+    }
+
     [Theory]
     [InlineData("Development", true, true)]
     [InlineData("Production", true, false)]

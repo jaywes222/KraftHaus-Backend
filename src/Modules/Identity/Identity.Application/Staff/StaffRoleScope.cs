@@ -21,6 +21,7 @@ public static class StaffRoleScope
             case IdentityRole.TenantAdmin:
             case IdentityRole.Finance:
             case IdentityRole.Support:
+            case IdentityRole.Dj:
                 return kraftId is null
                     ? (RoleScopeType.Tenant, tenantId.Value)
                     : IdentityErrors.Invalid(

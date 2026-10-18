@@ -157,7 +157,9 @@ public sealed class PermissionAuthorizationHandler(
                     "kraftId",
                     out var kraftId))
             {
-                return PermissionScope.Kraft(kraftId);
+                return PermissionScope.Kraft(
+                    kraftId,
+                    currentTenant is { IsResolved: true } ? currentTenant.TenantId.Value : null);
             }
 
             if (currentTenant is { IsResolved: true })

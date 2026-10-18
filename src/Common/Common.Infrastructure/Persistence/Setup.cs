@@ -1,6 +1,7 @@
 using Common.Application.Options;
 using Common.Application.Persistence;
 using Common.Infrastructure.Communications.Email;
+using Common.Infrastructure.Notifications;
 using Common.Infrastructure.Notifications.Sms;
 using Common.Infrastructure.Persistence.Auditing;
 using Common.Infrastructure.Persistence.AuditLog;
@@ -43,6 +44,9 @@ public static class Setup
 
             .AddSmsGateway(configuration)
             .AddEmailGateway(configuration)
+
+            // Every transactional SMS / e-mail gets a row in Communications (when that module runs here).
+            .AddMessageRecording()
 
             .AddAuditLogServices()
             .AddAuditingInterceptors()

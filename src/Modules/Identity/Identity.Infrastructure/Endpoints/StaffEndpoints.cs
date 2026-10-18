@@ -2,6 +2,7 @@ using Common.Application.Auth;
 using Common.Application.EndpointFilters;
 using Common.Domain.ResultMonad;
 using Common.Domain.StronglyTypedIds;
+using Identity.Application.Badges;
 using Identity.Application.Invitations;
 using Identity.Application.Staff;
 using Identity.Application.Users;
@@ -17,8 +18,8 @@ using Microsoft.AspNetCore.Routing;
 namespace Identity.Infrastructure.Endpoints;
 
 /// <summary>
-///     The signed-in caller (<c>/me</c>) and staff management on the host's tenant (UF-022): invitations and role
-///     assignments. Every write is scoped to the tenant resolved from the host name; nothing in the request names a
+///     The signed-in caller (<c>/me</c>) and staff management on the host's tenant (UF-022): the staff list,
+///     invitations and role assignments. Every write is scoped to the tenant resolved from the host name; nothing in the request names a
 ///     tenant.
 /// </summary>
 internal static class StaffEndpoints
@@ -54,6 +55,11 @@ internal static class StaffEndpoints
             .AddEndpointFilter<ResultToResponseTransformer<AcceptStaffInvitationResult>>();
 
         staff
+            .MapGet("/members", ListMembers)
+            .RequirePermission(IdentityPermission.UsersView)
+            .AddEndpointFilter<ResultToResponseTransformer<IReadOnlyList<StaffMemberResult>>>();
+
+        staff
             .MapGet("/users/{userId:guid}/roles", ListUserRoles)
             .RequirePermission(IdentityPermission.RolesView)
             .AddEndpointFilter<ResultToResponseTransformer<IReadOnlyList<RoleAssignmentResult>>>();
@@ -63,10 +69,75 @@ internal static class StaffEndpoints
             .RequirePermission(IdentityPermission.RolesGrant)
             .AddEndpointFilter<ResultToCreatedResponseTransformer<RoleAssignmentResult>>();
 
+        // Printable badges: photo, name, title, roles and a QR that opens the public check page.
+        staff
+            .MapGet("/users/{userId:guid}/badge", (Guid userId, StaffBadgeService service, CancellationToken ct) =>
+                service.GetAsync(new ApplicationUserId(userId), ct))
+            .RequirePermission(IdentityPermission.UsersView)
+            .AddEndpointFilter<ResultToResponseTransformer<StaffBadgeView>>();
+
+        staff
+            .MapPost("/users/{userId:guid}/badge", (Guid userId, IssueStaffBadgeRequest request, StaffBadgeService service, CancellationToken ct) =>
+                service.IssueAsync(new ApplicationUserId(userId), request, ct))
+            .RequirePermission(IdentityPermission.UsersManage)
+            .AddEndpointFilter<ResultToResponseTransformer<StaffBadgeView>>();
+
+        staff
+            .MapPut("/users/{userId:guid}/badge", (Guid userId, UpdateStaffBadgeRequest request, StaffBadgeService service, CancellationToken ct) =>
+                service.UpdateAsync(new ApplicationUserId(userId), request, ct))
+            .RequirePermission(IdentityPermission.UsersManage)
+            .AddEndpointFilter<ResultToResponseTransformer<StaffBadgeView>>();
+
+        staff
+            .MapPost("/users/{userId:guid}/badge/photo", (Guid userId, IFormFile file, StaffBadgeService service, CancellationToken ct) =>
+                UploadPhotoAsync(new ApplicationUserId(userId), file, service, ct))
+            .RequirePermission(IdentityPermission.UsersManage)
+            .DisableAntiforgery()
+            .AddEndpointFilter<ResultToResponseTransformer<StaffBadgeView>>();
+
+        // The signed-in staff member's own badge (print it themselves, add their own photo).
+        group
+            .MapGet("/me/badge", (ICurrentUser user, StaffBadgeService service, CancellationToken ct) =>
+                service.GetAsync(user.Id, ct))
+            .RequireAuthorization()
+            .AddEndpointFilter<ResultToResponseTransformer<StaffBadgeView>>();
+
+        group
+            .MapPost("/me/badge/photo", (ICurrentUser user, IFormFile file, StaffBadgeService service, CancellationToken ct) =>
+                UploadPhotoAsync(user.Id, file, service, ct))
+            .RequireAuthorization()
+            .DisableAntiforgery()
+            .AddEndpointFilter<ResultToResponseTransformer<StaffBadgeView>>();
+
+        // Public: scanning the badge QR. Says only whether the badge is current, with the name, title, roles and photo.
+        staff
+            .MapGet("/badges/{code}", (string code, StaffBadgeService service, CancellationToken ct) =>
+                service.CheckAsync(code, ct))
+            .AllowAnonymous()
+            .RequireRateLimiting("OtpVerify")
+            .AddEndpointFilter<ResultToResponseTransformer<StaffBadgeCheckView>>();
+
+        staff
+            .MapGet("/badges/{code}/photo", async (string code, StaffBadgeService service, CancellationToken ct) =>
+                await service.OpenPhotoAsync(code, ct) is { } photo
+                    ? Results.Stream(photo.Content, photo.ContentType)
+                    : Results.NotFound())
+            .AllowAnonymous();
+
         staff
             .MapPost("/roles/{assignmentId:guid}/revoke", RevokeRole)
             .RequirePermission(IdentityPermission.RolesRevoke)
             .AddEndpointFilter<ResultToResponseTransformer>();
+    }
+
+    private static async Task<Result<StaffBadgeView>> UploadPhotoAsync(
+        ApplicationUserId userId,
+        IFormFile file,
+        StaffBadgeService service,
+        CancellationToken cancellationToken)
+    {
+        await using var stream = file.OpenReadStream();
+        return await service.UploadPhotoAsync(userId, stream, file.Length, cancellationToken);
     }
 
     private static Task<Result<CurrentUserResult>> GetCurrentUser(
@@ -110,6 +181,11 @@ internal static class StaffEndpoints
         service.ExecuteAsync(
             new AcceptStaffInvitationCommand(new StaffInvitationId(invitationId), request.Code),
             cancellationToken);
+
+    private static Task<Result<IReadOnlyList<StaffMemberResult>>> ListMembers(
+        ListStaffMembersService service,
+        CancellationToken cancellationToken) =>
+        service.ExecuteAsync(cancellationToken);
 
     private static Task<Result<IReadOnlyList<RoleAssignmentResult>>> ListUserRoles(
         Guid userId,

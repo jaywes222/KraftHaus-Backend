@@ -705,7 +705,7 @@ public sealed partial class Event : AggregateRoot<EventId>
 
         var change = new EventStructureChanged(Id, EventPart.SalePhase, ChangeKind.Added, phaseId.Value);
 
-        var phase = SalePhase.Create(phaseId, name, spec.Price, window, spec.Allocation);
+        var phase = SalePhase.Create(phaseId, name, spec.Price, window, spec.Allocation, spec.EarlyAccess);
         tier.AddPhase(phase);
 
         RaiseEvent(change);
@@ -758,7 +758,7 @@ public sealed partial class Event : AggregateRoot<EventId>
 
         var change = new EventStructureChanged(Id, EventPart.SalePhase, ChangeKind.Updated, phaseId.Value);
 
-        phase.Update(name, spec.Price, window, spec.Allocation);
+        phase.Update(name, spec.Price, window, spec.Allocation, spec.EarlyAccess);
 
         RaiseEvent(change);
 

@@ -51,7 +51,8 @@ public sealed record PhaseInput(
     decimal Price,
     DateTimeOffset StartsAt,
     DateTimeOffset EndsAt,
-    int? Allocation);
+    int? Allocation,
+    bool EarlyAccess = false);
 
 public sealed record GroupOfferInput(
     GroupOfferKind Kind,

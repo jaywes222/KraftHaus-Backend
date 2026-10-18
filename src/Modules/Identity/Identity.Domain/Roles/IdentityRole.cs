@@ -7,5 +7,8 @@ public enum IdentityRole
     Finance = 3,
     Support = 4,
     KraftOwner = 5,
-    KraftStaff = 6
+    KraftStaff = 6,
+
+    /// <summary>Plays the event: works the song-request queue in the DJ console. Nothing else.</summary>
+    Dj = 7
 }

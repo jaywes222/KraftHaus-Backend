@@ -105,6 +105,11 @@ internal static class IdentityEfConversions
             return (TId)(object)new ApplicationUserId(value);
         }
 
+        if (typeof(TId) == typeof(StaffBadgeId))
+        {
+            return (TId)(object)new StaffBadgeId(value);
+        }
+
         throw new InvalidOperationException(
             $"No Identity EF converter exists for {typeof(TId).Name}.");
     }

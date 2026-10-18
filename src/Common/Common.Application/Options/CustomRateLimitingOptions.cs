@@ -21,6 +21,18 @@ public class CustomRateLimitingOptions
     public required FixedWindow OtpVerify { get; set; }
 
     /// <summary>
+    ///     Anonymous waitlist sign-up (Spec 08 §11), per IP. Each accepted join sends one SMS, so keep it tight, but
+    ///     remember that many Safaricom phones share one public IP. Defaults to 10 a minute when not configured.
+    /// </summary>
+    public FixedWindow Waitlist { get; set; } = new() { Limit = 10, PeriodInMs = 60_000 };
+
+    /// <summary>Order placement, payment retries and transfers, per customer (Spec 08 §11). Defaults to 20 a minute.</summary>
+    public FixedWindow Checkout { get; set; } = new() { Limit = 20, PeriodInMs = 60_000 };
+
+    /// <summary>Door scans, manual check-ins and searches, per staff account. Defaults to 120 a minute when not configured.</summary>
+    public FixedWindow Scan { get; set; } = new() { Limit = 120, PeriodInMs = 60_000 };
+
+    /// <summary>
     /// Path prefixes the global limiter never applies to. Rate-limiting a persistent connection (e.g.
     /// a SignalR hub) is meaningless — reconnect storms and long-polling fallback would otherwise 429.
     /// </summary>
@@ -71,6 +83,15 @@ public class CustomRateLimitingOptionsValidator : CustomValidator<CustomRateLimi
             .SetValidator(new FixedWindowValidator());
 
         RuleFor(o => o.OtpVerify)
+            .SetValidator(new FixedWindowValidator());
+
+        RuleFor(o => o.Waitlist)
+            .SetValidator(new FixedWindowValidator());
+
+        RuleFor(o => o.Checkout)
+            .SetValidator(new FixedWindowValidator());
+
+        RuleFor(o => o.Scan)
             .SetValidator(new FixedWindowValidator());
 #pragma warning restore CS8620
     }

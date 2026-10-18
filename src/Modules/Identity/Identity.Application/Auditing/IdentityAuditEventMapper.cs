@@ -1,6 +1,7 @@
 using System.Globalization;
 using Common.Application.Auditing;
 using Common.Domain.Events;
+using Identity.Domain.Badges;
 using Identity.Domain.Events;
 using Identity.Domain.Sessions;
 
@@ -243,6 +244,30 @@ public sealed class IdentityAuditEventMapper(
                 IdentityAuditActions.InvitationRevoked,
                 AuditOutcome.Succeeded,
                 InvitationTarget(e.InvitationId.Value)),
+
+            StaffBadgeIssued e => new IdentityAuditDescriptor(
+                e.Reissued ? IdentityAuditActions.BadgeReissued : IdentityAuditActions.BadgeIssued,
+                AuditOutcome.Succeeded,
+                new AuditTarget(IdentityAuditTargets.StaffBadge, Id(e.BadgeId.Value)))
+            {
+                SubjectUserId = e.UserId.Value
+            },
+
+            StaffBadgeTitleChanged e => new IdentityAuditDescriptor(
+                IdentityAuditActions.BadgeTitleChanged,
+                AuditOutcome.Succeeded,
+                new AuditTarget(IdentityAuditTargets.StaffBadge, Id(e.BadgeId.Value)))
+            {
+                SubjectUserId = e.UserId.Value
+            },
+
+            StaffBadgePhotoChanged e => new IdentityAuditDescriptor(
+                IdentityAuditActions.BadgePhotoChanged,
+                AuditOutcome.Succeeded,
+                new AuditTarget(IdentityAuditTargets.StaffBadge, Id(e.BadgeId.Value)))
+            {
+                SubjectUserId = e.UserId.Value
+            },
 
             CustomerRefCreated e => new IdentityAuditDescriptor(
                 IdentityAuditActions.CustomerRefCreated,

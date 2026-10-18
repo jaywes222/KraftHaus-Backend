@@ -1,3 +1,6 @@
+using Identity.Application.Badges;
+using Identity.Infrastructure.Storage;
+using Common.Application.Customers;
 using Common.Application.Options;
 using Common.Application.Persistence;
 using Common.Infrastructure.Resiliency;
@@ -42,6 +45,9 @@ public static class Setup
         services
            .AddOptions<OtpSecurityOptions>()
            .BindConfiguration("Identity:OtpSecurity")
+           .Validate(
+               x => !string.IsNullOrWhiteSpace(x.HashSecret) && x.HashSecret.Length >= 16,
+               "Identity:OtpSecurity:HashSecret is required (at least 16 characters).")
            .ValidateOnStart();
 
         services
@@ -50,8 +56,14 @@ public static class Setup
                IdentityPolicyOptions.SectionName)
            .ValidateOnStart();
 
+        // ValidateOnStart only runs registered IValidateOptions: without this the FluentValidation rules never ran.
+        services.AddSingleton<IValidateOptions<IdentityPolicyOptions>>(
+            new FluentValidateOptions<IdentityPolicyOptions>(new IdentityPolicyOptionsValidator()));
+
         // OtpSender only routes to ISmsGateway / IEmailGateway; the resilient HTTP clients live in those gateways
         // (Notifications:Sms / Notifications:Email). It is not an HTTP client itself.
+        services.AddScoped<ICustomerDirectory, CustomerDirectory>();
+
         services.AddScoped<OtpSender>();
         services.AddScoped<IOtpSender>(sp => ActivatorUtilities.CreateInstance<DevelopmentOtpLogSender>(
             sp,
@@ -65,6 +77,15 @@ public static class Setup
         services.AddSingleton<
             IValidateOptions<IdentityDevelopmentOptions>,
             IdentityDevelopmentOptionsValidator>();
+
+        services
+            .AddOptions<IdentityBootstrapOptions>()
+            .BindConfiguration(IdentityBootstrapOptions.SectionName)
+            .ValidateOnStart();
+
+        services.AddSingleton<
+            IValidateOptions<IdentityBootstrapOptions>,
+            IdentityBootstrapOptionsValidator>();
 
         services.AddScoped<
             IPermissionAuthorizationService,
@@ -83,6 +104,7 @@ public static class Setup
             IdentityServerSessionTokenIssuer>();
 
         services.AddScoped<IDatabaseSeeder, IdentitySeeder>();
+        services.AddScoped<IDatabaseSeeder, BootstrapAdminSeeder>();
 
         services.AddScoped<
             IOtpChallengeRepository,
@@ -105,12 +127,22 @@ public static class Setup
             StaffInvitationRepository>();
 
         services.AddScoped<
+            IStaffDirectory,
+            StaffDirectory>();
+
+        services.AddScoped<
             IIdentityUnitOfWork,
             IdentityUnitOfWork>();
 
         services.AddScoped<
             IOtpProofService,
             OtpProofService>();
+
+        services.AddOptions<StaffBadgeOptions>().BindConfiguration(StaffBadgeOptions.SectionName).ValidateOnStart();
+        services.AddSingleton<IValidateOptions<StaffBadgeOptions>, StaffBadgeOptionsValidator>();
+        services.AddScoped<IStaffBadgeRepository, StaffBadgeRepository>();
+        services.AddSingleton<IStaffPhotoStorage, DiskStaffPhotoStorage>();
+        services.AddScoped<StaffBadgeService>();
 
         services.AddScoped<IStaffInvitationNotifier, StaffInvitationNotifier>();
         services.AddScoped<AcceptStaffInvitationService>();
@@ -120,6 +152,7 @@ public static class Setup
         services.AddScoped<GrantRoleService>();
         services.AddScoped<RevokeRoleService>();
         services.AddScoped<ListUserRolesService>();
+        services.AddScoped<ListStaffMembersService>();
         services.AddScoped<GetCurrentUserService>();
 
         services.AddScoped<RequestOtpService>();

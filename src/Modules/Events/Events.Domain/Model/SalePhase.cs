@@ -41,24 +41,38 @@ public sealed class SalePhase : AuditableEntity<SalePhaseId>
     /// <summary>Optional cap on admissions sold at this price (e.g. "first 100 at Early Bird").</summary>
     public int? Allocation { get; private set; }
 
+    /// <summary>
+    ///     Early access (PRODUCT.md): during this phase only phone numbers on the event's waitlist may buy this tier.
+    ///     Ticketing enforces it at checkout.
+    /// </summary>
+    public bool EarlyAccess { get; private set; }
+
     public SalesWindow Window => SalesWindow.FromStored(StartsAt, EndsAt);
 
-    internal static SalePhase Create(SalePhaseId id, string name, Money price, SalesWindow window, int? allocation) =>
+    internal static SalePhase Create(
+        SalePhaseId id,
+        string name,
+        Money price,
+        SalesWindow window,
+        int? allocation,
+        bool earlyAccess) =>
         new(id)
         {
             Name = name,
             Price = price,
             StartsAt = window.StartsAt,
             EndsAt = window.EndsAt,
-            Allocation = allocation
+            Allocation = allocation,
+            EarlyAccess = earlyAccess
         };
 
-    internal void Update(string name, Money price, SalesWindow window, int? allocation)
+    internal void Update(string name, Money price, SalesWindow window, int? allocation, bool earlyAccess)
     {
         Name = name;
         Price = price;
         StartsAt = window.StartsAt;
         EndsAt = window.EndsAt;
         Allocation = allocation;
+        EarlyAccess = earlyAccess;
     }
 }

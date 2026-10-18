@@ -41,6 +41,12 @@ public static class IdentityAuditActions
     public const string InvitationAccepted = "identity.invitation.accepted";
     public const string InvitationRevoked = "identity.invitation.revoked";
 
+    // Staff badges (domain events).
+    public const string BadgeIssued = "identity.badge.issued";
+    public const string BadgeReissued = "identity.badge.reissued";
+    public const string BadgeTitleChanged = "identity.badge.title_changed";
+    public const string BadgePhotoChanged = "identity.badge.photo_changed";
+
     // Customer references (domain events).
     public const string CustomerRefCreated = "identity.customer_ref.created";
     public const string CustomerRefRefreshed = "identity.customer_ref.refreshed";
@@ -72,5 +78,6 @@ public static class IdentityAuditTargets
     public const string RoleAssignment = "role_assignment";
     public const string StaffInvitation = "staff_invitation";
     public const string CustomerRef = "customer_ref";
+    public const string StaffBadge = "staff_badge";
     public const string Permission = "permission";
 }

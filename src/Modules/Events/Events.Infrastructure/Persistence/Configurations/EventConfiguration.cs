@@ -196,6 +196,7 @@ public sealed class SalePhaseConfiguration : IEntityTypeConfiguration<SalePhase>
         builder.Property(x => x.StartsAt).IsRequired();
         builder.Property(x => x.EndsAt).IsRequired();
         builder.Property(x => x.Allocation);
+        builder.Property(x => x.EarlyAccess).HasDefaultValue(false).IsRequired();
 
         EventsEf.ConfigureAudit(builder);
     }

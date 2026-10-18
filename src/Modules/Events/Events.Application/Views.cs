@@ -75,6 +75,7 @@ public sealed record SalePhaseView(
     DateTimeOffset StartsAt,
     DateTimeOffset EndsAt,
     int? Allocation,
+    bool EarlyAccess,
     bool IsCurrent);
 
 public sealed record GroupOfferView(
@@ -188,6 +189,7 @@ public sealed record EventView(
                         x.StartsAt,
                         x.EndsAt,
                         x.Allocation,
+                        x.EarlyAccess,
                         x.Window.Contains(now)))
             ],
             [

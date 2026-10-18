@@ -12,6 +12,12 @@ public enum WarehouseGatewayProvider
 
 public class InventoryOptions
 {
+    /// <summary>
+    ///     False when nothing in this deployment uses the warehouse gateway. Only then may Production keep the Dummy provider:
+    ///     the production check guards a feature that is switched on, not a leftover registration.
+    /// </summary>
+    public bool Enabled { get; set; } = true;
+
     public required int MaxOccurrencesPerSeries { get; set; }
     public required int SafetyBufferQuantity { get; set; }
 
@@ -53,7 +59,9 @@ public class InventoryOptionsValidator : CustomValidator<InventoryOptions>
         // Dummy gateway always succeeds; set Provider to 'Http' (with a real BaseUrl) before deploying.
         RuleFor(x => x.WarehouseGatewayProvider)
             .Must((_, provider, context) => !context.IsProduction() || provider != WarehouseGatewayProvider.Dummy)
-            .WithMessage("InventoryOptions.WarehouseGatewayProvider is 'Dummy' in Production.");
+            .WithMessage("InventoryOptions.WarehouseGatewayProvider is 'Dummy' in Production. Set it to 'Http', or set " +
+                         "Enabled to false when nothing uses the warehouse gateway.")
+            .When(x => x.Enabled);
 
         RuleFor(x => x.WarehouseGatewayBaseUrl)
             .NotEmpty()

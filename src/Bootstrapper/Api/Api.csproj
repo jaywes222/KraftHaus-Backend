@@ -1,4 +1,4 @@
-﻿<Project Sdk="Microsoft.NET.Sdk.Web">
+<Project Sdk="Microsoft.NET.Sdk.Web">
 
   <PropertyGroup>
     <TargetFramework>net10.0</TargetFramework>
@@ -50,6 +50,11 @@
     <!-- OpenAPI -->
     <PackageReference Include="Swashbuckle.AspNetCore" />
 
+    <!-- Background jobs (Spec 08 §9.4): Hangfire on PostgreSQL -->
+    <PackageReference Include="Hangfire.AspNetCore" />
+    <PackageReference Include="Hangfire.Core" />
+    <PackageReference Include="Hangfire.PostgreSql" />
+
     <!-- Health checks -->
     <PackageReference Include="AspNetCore.HealthChecks.NpgSql" />
     <PackageReference Include="AspNetCore.HealthChecks.Redis" />
@@ -83,6 +88,15 @@
     <ProjectReference Include="..\..\Modules\Tenancy\Tenancy.Domain\Tenancy.Domain.csproj" />
     <ProjectReference Include="..\..\Modules\Identity\Identity.Infrastructure\Identity.Infrastructure.csproj" />
     <ProjectReference Include="..\..\Modules\Events\Events.Infrastructure\Events.Infrastructure.csproj" />
+    <ProjectReference Include="..\..\Modules\Ticketing\Ticketing.Infrastructure\Ticketing.Infrastructure.csproj" />
+    <ProjectReference Include="..\..\Modules\Commerce\Commerce.Infrastructure\Commerce.Infrastructure.csproj" />
+    <ProjectReference Include="..\..\Modules\Displays\Displays.Infrastructure\Displays.Infrastructure.csproj" />
+    <ProjectReference Include="..\..\Modules\Music\Music.Infrastructure\Music.Infrastructure.csproj" />
+    <ProjectReference Include="..\..\Modules\Payments\Payments.Infrastructure\Payments.Infrastructure.csproj" />
+    <ProjectReference Include="..\..\Modules\Analytics\Analytics.Infrastructure\Analytics.Infrastructure.csproj" />
+    <ProjectReference Include="..\..\Modules\Content\Content.Infrastructure\Content.Infrastructure.csproj" />
+    <ProjectReference Include="..\..\Modules\Feedback\Feedback.Infrastructure\Feedback.Infrastructure.csproj" />
+    <ProjectReference Include="..\..\Modules\Communications\Communications.Infrastructure\Communications.Infrastructure.csproj" />
   </ItemGroup>
 
   <ItemGroup>

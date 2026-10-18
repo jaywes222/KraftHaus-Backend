@@ -31,9 +31,18 @@ public static class IdentityPermissionMatrix
                     IdentityPermission.TillApprove,
                     IdentityPermission.KitchenView,
                     IdentityPermission.KitchenHandle,
+                    IdentityPermission.KraftManage,
                     IdentityPermission.EventsView,
                     IdentityPermission.EventsManage,
-                    IdentityPermission.EventsPublish),
+                    IdentityPermission.EventsPublish,
+                    IdentityPermission.DisplaysView,
+                    IdentityPermission.DisplaysManage,
+                    IdentityPermission.MusicRequests,
+                    IdentityPermission.CommunicationsView,
+                    IdentityPermission.CommunicationsManage,
+                    IdentityPermission.FeedbackView,
+                    IdentityPermission.ContentManage,
+                    IdentityPermission.AnalyticsView),
 
             [IdentityRole.Finance] =
                 Permissions(
@@ -42,11 +51,16 @@ public static class IdentityPermissionMatrix
                     IdentityPermission.PaymentsManage,
                     IdentityPermission.PaymentsRefund,
                     IdentityPermission.TillView,
-                    IdentityPermission.TillApprove),
+                    IdentityPermission.TillApprove,
+                    IdentityPermission.AnalyticsView),
 
             [IdentityRole.Support] =
                 Permissions(
+                    IdentityPermission.CommunicationsView,
+                    IdentityPermission.FeedbackView,
                     IdentityPermission.EventsView,
+                    IdentityPermission.DisplaysView,
+                    IdentityPermission.MusicRequests,
                     IdentityPermission.UsersView,
                     IdentityPermission.TicketsView,
                     IdentityPermission.TicketsManage,
@@ -55,6 +69,7 @@ public static class IdentityPermissionMatrix
 
             [IdentityRole.KraftOwner] =
                 Permissions(
+                    IdentityPermission.KraftManage,
                     IdentityPermission.UsersView,
                     IdentityPermission.TicketsView,
                     IdentityPermission.TicketsManage,
@@ -74,7 +89,12 @@ public static class IdentityPermissionMatrix
                     IdentityPermission.PaymentsView,
                     IdentityPermission.TillView,
                     IdentityPermission.KitchenView,
-                    IdentityPermission.KitchenHandle)
+                    IdentityPermission.KitchenHandle),
+
+            [IdentityRole.Dj] =
+                Permissions(
+                    IdentityPermission.EventsView,
+                    IdentityPermission.MusicRequests)
         };
 
     private static readonly IReadOnlySet<string> _emptyPermissions =

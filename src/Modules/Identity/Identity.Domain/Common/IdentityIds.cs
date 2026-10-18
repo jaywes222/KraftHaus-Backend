@@ -11,3 +11,5 @@ public readonly record struct RoleAssignmentId(Guid Value) : IStronglyTypedId;
 public readonly record struct StaffInvitationId(Guid Value) : IStronglyTypedId;
 
 public readonly record struct CustomerRefId(Guid Value) : IStronglyTypedId;
+
+public readonly record struct StaffBadgeId(Guid Value) : IStronglyTypedId;

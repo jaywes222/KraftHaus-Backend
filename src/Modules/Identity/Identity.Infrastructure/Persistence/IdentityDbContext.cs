@@ -1,4 +1,5 @@
 using Common.Infrastructure.Persistence.ValueConverters;
+using Identity.Domain.Badges;
 using Identity.Domain.Customers;
 using Identity.Domain.Invitations;
 using Identity.Domain.Otp;
@@ -33,6 +34,9 @@ public sealed class IdentityDbContext(
     public DbSet<StaffInvitation> StaffInvitations =>
         Set<StaffInvitation>();
 
+    public DbSet<StaffBadge> StaffBadges =>
+        Set<StaffBadge>();
+
     public DbSet<CustomerRef> CustomerRefs =>
         Set<CustomerRef>();
 
@@ -65,6 +69,9 @@ public sealed class IdentityDbContext(
 
         modelBuilder.ApplyConfiguration(
             new CustomerRefConfiguration());
+
+        modelBuilder.ApplyConfiguration(
+            new StaffBadgeConfiguration());
 
         modelBuilder.ApplyConfiguration(
             new IdentityAuditRecordConfiguration());

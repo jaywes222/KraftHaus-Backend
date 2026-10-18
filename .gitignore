@@ -453,3 +453,6 @@ appsettings*.json
 appsettings*.Development.json
 appsettings*.Production.json
 *.pfx
+
+# Uploaded display images (Displays:AssetsRootPath); back up with the databases, never commit.
+**/App_Data/

@@ -89,7 +89,9 @@ public sealed class CustomRateLimitingOptionsValidatorTests
             TokenCreate = Window(),
             CheckRegistration = Window(),
             TokenRefresh = Window(),
-            OtpVerify = Window()
+            OtpVerify = Window(),
+            Waitlist = Window(),
+            Checkout = Window()
         };
     }
 }

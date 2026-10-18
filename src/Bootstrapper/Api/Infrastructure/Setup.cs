@@ -69,6 +69,7 @@ internal static partial class Setup
     .AddCommonFeatureManagement(configuration)
     .AddCommonAuth()
     .AddCommonAuditing()
+    .AddBackgroundJobs(configuration)
 
     .AddCustomMassTransit(configuration, moduleAssemblies)
     .AddCustomHealthChecks(configuration)
@@ -91,7 +92,8 @@ internal static partial class Setup
 
         if (hasAuth)
         {
-            app.UseAuthentication()
+            app.UseMiddleware<HubAccessTokenMiddleware>()
+                .UseAuthentication()
                 .UseMiddleware<EnrichLogsWithUserInfoMiddleware>();
         }
 

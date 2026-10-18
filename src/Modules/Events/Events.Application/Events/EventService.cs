@@ -474,7 +474,7 @@ public sealed class EventService(
         new(input.Name, input.Description, input.Capacity);
 
     private static PhaseSpec ToSpec(PhaseInput input, Money price) =>
-        new(input.Name, price, input.StartsAt, input.EndsAt, input.Allocation);
+        new(input.Name, price, input.StartsAt, input.EndsAt, input.Allocation, input.EarlyAccess);
 
     private static OfferSpec ToSpec(GroupOfferInput input, Money price) =>
         new(input.Kind, input.Name, input.Admits, price, input.StartsAt, input.EndsAt, input.Allocation);

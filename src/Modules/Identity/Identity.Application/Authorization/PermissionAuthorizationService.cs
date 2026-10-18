@@ -56,6 +56,14 @@ public sealed class PermissionAuthorizationService(
             return true;
         }
 
+        // A tenant-wide role covers the Krafts of its own tenant.
+        if (requested.ScopeType == RoleScopeType.Kraft &&
+            assignment.ScopeType == RoleScopeType.Tenant)
+        {
+            return requested.TenantId is { } tenantId &&
+                   assignment.ScopeId == tenantId;
+        }
+
         if (assignment.ScopeType !=
             requested.ScopeType)
         {

@@ -49,8 +49,20 @@ public static class EmailGatewayRegistration
 
             case EmailProvider.ZeptoMail:
 
-                throw new NotSupportedException(
-                    "ZeptoMail email gateway has not been registered yet.");
+                services.AddHttpClient<
+                    IEmailGateway,
+                    ZeptoMailEmailGateway>(
+                    client =>
+                    {
+                        client.BaseAddress =
+                            new Uri(options.BaseUrl);
+
+                        // An OTP request waits for this call; never the HttpClient default of 100 seconds.
+                        client.Timeout =
+                            TimeSpan.FromSeconds(options.TotalRequestTimeoutSeconds);
+                    });
+
+                break;
 
             default:
 

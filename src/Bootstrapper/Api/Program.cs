@@ -43,6 +43,8 @@ try
 
     app.UseModules();
 
+    app.UseBackgroundJobsDashboard();
+
     app.UseModuleAwareAuthorization();
 
     app.MapModuleEndpoints();

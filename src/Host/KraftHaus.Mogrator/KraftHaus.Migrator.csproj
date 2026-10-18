@@ -11,6 +11,14 @@
     <ProjectReference Include="..\..\Modules\Tenancy.Infrastructure\Tenancy.Infrastructure.csproj" />
     <ProjectReference Include="..\..\Modules\Tenancy\Tenancy.Application\Tenancy.Application.csproj" />
     <ProjectReference Include="..\..\Modules\Events\Events.Infrastructure\Events.Infrastructure.csproj" />
+    <ProjectReference Include="..\..\Modules\Ticketing\Ticketing.Infrastructure\Ticketing.Infrastructure.csproj" />
+    <ProjectReference Include="..\..\Modules\Commerce\Commerce.Infrastructure\Commerce.Infrastructure.csproj" />
+    <ProjectReference Include="..\..\Modules\Displays\Displays.Infrastructure\Displays.Infrastructure.csproj" />
+    <ProjectReference Include="..\..\Modules\Music\Music.Infrastructure\Music.Infrastructure.csproj" />
+    <ProjectReference Include="..\..\Modules\Payments\Payments.Infrastructure\Payments.Infrastructure.csproj" />
+    <ProjectReference Include="..\..\Modules\Content\Content.Infrastructure\Content.Infrastructure.csproj" />
+    <ProjectReference Include="..\..\Modules\Feedback\Feedback.Infrastructure\Feedback.Infrastructure.csproj" />
+    <ProjectReference Include="..\..\Modules\Communications\Communications.Infrastructure\Communications.Infrastructure.csproj" />
   </ItemGroup>
 
 </Project>

@@ -6,6 +6,8 @@ using Tenancy.Application.Provisioning;
 using Tenancy.Infrastructure.Database;
 using Tenancy.Infrastructure.Resolution;
 using Tenancy.Infrastructure.Seeding;
+using Microsoft.Extensions.DependencyInjection.Extensions;
+using Tenancy.Infrastructure.Provisioning;
 
 namespace Tenancy.Infrastructure;
 
@@ -20,6 +22,8 @@ public static class Setup
         services.AddSingleton<ITenantRegistry, TenantRegistry>();
         services.AddScoped<ITenantResolutionService, TenantResolutionService>();
         services.AddScoped<ITenantProvisioner, TenantProvisioningService>();
+        services.AddScoped<TenantBootstrapper>();
+        services.TryAddSingleton(TimeProvider.System);
 
         services.AddScoped<TenantContext>();
         services.AddScoped<ITenantContext>(
@@ -33,6 +37,7 @@ public static class Setup
         services.AddScoped<ITenantDatabaseConnection, TenantDatabaseConnection>();
 
         services.AddScoped<ITenantScopeFactory, TenantScopeFactory>();
+        services.AddSingleton<ITenantScopeRunner, TenantScopeRunner>();
 
         services.AddSingleton<
             ITenantDatabaseConnectionFactory,

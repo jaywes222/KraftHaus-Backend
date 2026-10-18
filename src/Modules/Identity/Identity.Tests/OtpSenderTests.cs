@@ -1,7 +1,9 @@
 using Common.Application.Notifications;
+using Common.Application.Options;
 using FluentAssertions;
 using Identity.Application.Otp;
 using Identity.Domain.Otp;
+using Microsoft.Extensions.Options;
 using Xunit;
 
 namespace Identity.Tests;
@@ -20,7 +22,8 @@ public sealed class OtpSenderTests
         var sender =
             new OtpSender(
                 sms,
-                email);
+                email,
+                SmsTemplate("Your KRAFTHAUS code is {0}. Don't share it."));
 
         await sender.SendAsync(
             OtpChannel.Phone,
@@ -40,9 +43,10 @@ public sealed class OtpSenderTests
             .Should()
             .Be("+254700000000");
 
+        // The configured Notifications:Sms:Templates:Otp wording, never a bare code (reads as spam).
         message.Message
             .Should()
-            .Be("123456");
+            .Be("Your KRAFTHAUS code is 123456. Don't share it.");
 
         email.Messages
             .Should()
@@ -61,7 +65,8 @@ public sealed class OtpSenderTests
         var sender =
             new OtpSender(
                 sms,
-                email);
+                email,
+                SmsTemplate("Your KRAFTHAUS code is {0}. Don't share it."));
 
         await sender.SendAsync(
             OtpChannel.Email,
@@ -99,6 +104,20 @@ public sealed class OtpSenderTests
             .BeEmpty();
     }
 
+    private static IOptions<SmsOptions> SmsTemplate(string template)
+    {
+        var options = new SmsOptions
+        {
+            Provider = SmsProvider.Dummy,
+            BaseUrl = "https://api.example.com/",
+            ApiKey = string.Empty,
+            SenderId = string.Empty,
+            ThrottleCounterTtlHours = 48,
+            Templates = new SmsTemplatesOptions()
+        };
+        options.Templates.Otp["en"] = template;
+        return Options.Create(options);
+    }
     private sealed class RecordingSmsGateway
         : ISmsGateway
     {

@@ -12,6 +12,12 @@ public enum PushProvider
 
 public class PushOptions
 {
+    /// <summary>
+    ///     False when nothing in this deployment uses push notifications. Only then may Production keep the Dummy provider:
+    ///     the production check guards a feature that is switched on, not a leftover registration.
+    /// </summary>
+    public bool Enabled { get; set; } = true;
+
     /// <summary>"Dummy" (non-production only, no-op) or "Firebase".</summary>
     public required PushProvider Provider { get; set; }
 
@@ -69,7 +75,9 @@ public class PushOptionsValidator : CustomValidator<PushOptions>
             .WithMessage(
                 $"{nameof(PushOptions)}.{nameof(PushOptions.Provider)} is 'Dummy' in Production. Dummy push gateway is a " +
                 "no-op: notifications would never reach devices. " +
-                $"Set {nameof(PushOptions.Provider)} to 'Firebase' (with real credentials) before deploying.");
+                $"Set {nameof(PushOptions.Provider)} to 'Firebase' (with real credentials) before deploying, or set " +
+                $"{nameof(PushOptions.Enabled)} to false when nothing sends push notifications.")
+            .When(o => o.Enabled);
 
         When(o => o.Provider == PushProvider.Firebase, () =>
         {

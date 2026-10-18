@@ -26,7 +26,8 @@ public sealed record PublicVenue(
     string? Directions,
     IReadOnlyList<string> Entrances);
 
-public sealed record PublicPrice(string PhaseName, Money Price, DateTimeOffset StartsAt, DateTimeOffset EndsAt);
+/// <param name="EarlyAccess">Only phone numbers on the event's waitlist can buy at this price.</param>
+public sealed record PublicPrice(string PhaseName, Money Price, DateTimeOffset StartsAt, DateTimeOffset EndsAt, bool EarlyAccess);
 
 public sealed record PublicGroupOffer(
     Guid Id,
@@ -54,7 +55,14 @@ public sealed record PublicDate(
     bool Cancelled,
     IReadOnlyList<PublicTier> Tiers);
 
-public sealed record PublicPolicies(bool RefundsEnabled, bool TransfersEnabled, bool LipaMdogoMdogoEnabled);
+/// <param name="MaxTicketsPerOrder">Admissions one order may hold (a Couple bundle counts 2), so the picker can cap quantities.</param>
+/// <param name="HoldMinutes">How long seats are held while the M-Pesa prompt is open.</param>
+public sealed record PublicPolicies(
+    bool RefundsEnabled,
+    bool TransfersEnabled,
+    bool LipaMdogoMdogoEnabled,
+    int MaxTicketsPerOrder,
+    int HoldMinutes);
 
 public sealed record PublicEvent(
     string Slug,
@@ -115,7 +123,9 @@ internal static class PublicEventMapping
             new PublicPolicies(
                 @event.Policies.RefundsEnabled,
                 @event.Policies.TransfersEnabled,
-                @event.Policies.LipaMdogoMdogoEnabled),
+                @event.Policies.LipaMdogoMdogoEnabled,
+                @event.Policies.MaxTicketsPerOrder,
+                @event.Policies.HoldMinutes),
             [
                 .. @event.Dates
                     .OrderBy(x => x.StartsAt)
@@ -159,5 +169,5 @@ internal static class PublicEventMapping
     }
 
     private static PublicPrice ToPrice(SalePhase phase) =>
-        new(phase.Name, phase.Price, phase.StartsAt, phase.EndsAt);
+        new(phase.Name, phase.Price, phase.StartsAt, phase.EndsAt, phase.EarlyAccess);
 }

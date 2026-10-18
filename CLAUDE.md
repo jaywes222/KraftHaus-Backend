@@ -50,19 +50,28 @@ Mandatory search order:
 | Tenancy | platform (`tenancy`, `infra` schemas) | done (WP-03) | Tenant registry, host → tenant resolution middleware, provisioning (create DB + apply every tenant-scoped module schema, advisory lock, retries), dev seeder (`DEV` tenant on `localhost`, DB `krafthaus_dev`). |
 | Identity | platform (`identity`) | done | OTP sign-in (Duende IdentityServer issues short-lived JWTs + rotating refresh tokens), sessions, staff invitations, role assignments, permission catalog + matrix, security audit log (WP-08). |
 | Events | **tenant** (`events`) | done | Venue library; events with venue copy, entrances, dates → per-date tiers → sale phases + Couple/Gang group offers; policies; lifecycle; public client view; audit log. See `docs/EVENTS-MODULE.md`. |
-| Ticketing, Payments, Commerce, Communications, Displays, Feedback, Content, Analytics, Audit | — | not started | Spec 08 §4. |
+| Ticketing | **tenant** (`ticketing`) | S1-S4 done | Waitlist (UF-001) with SMS resends; orders with capacity holds (`capacity_bucket`/`capacity_hold`, atomic SQL), checkout with `Idempotency-Key`, early access, tickets issued on `PaymentSucceeded`, hold-expiry job, late payments; check-in, transfers, attendee names, Lipa Mdogo Mdogo; Finance resolve/void. See `docs/TICKETING-MODULE.md`. |
+| Payments | **tenant** (`payments`) | PalPluss STK, tills done | M-Pesa through **PalPluss** (not Daraja): STK push, per-payment callback token, outcome always read from `GET /transactions/{id}`, status-check job, Finance list, review, settlement (BR-025); Kraft tills = PalPluss channels with test and approval (UF-017). See `docs/PAYMENTS-MODULE.md`. |
+| Commerce | **tenant** (`commerce`) | S5 P0 done | Krafts, brands, Krafters, event terms with commission %; menus with stock buckets/holds; split-cart checkout (one order and prompt per Kraft, D-03), ticket gate per date (O-04), reservations; kitchen board and pickup (SignalR hubs), O-05 flags, Finance sales. See `docs/COMMERCE-MODULE.md`. |
+| Displays | **tenant** (`displays`) | UF-019 done | Screens paired by code, device tokens (`DisplayDevice` auth scheme, revocable), configurations (slide playlists), time schedules, programme, images on disk (`Displays:AssetsRootPath`), feed resolving menu/ready orders via `ICommerceBoards`, hub `/hubs/display`. See `docs/DISPLAYS-MODULE.md`. |
+| Music | **tenant** (`music`) | song requests done | Request board per event (open/closed, per-person limit, note), MusicBrainz search (one call a second, cached) or typed songs, votes, DJ console (up next/played/pass/undo), DJ role (`music:requests`). See `docs/MUSIC-MODULE.md`. |
+| Communications | **tenant** (`communications`) | UF-020 done | Message log for every SMS/e-mail (gateway decorator `AddMessageRecording`, codes masked), SMS delivery-report webhook, broadcasts to event audiences (waitlist marketing / waitlist without ticket / ticket holders) through a throttled dispatcher job, templates, marketing opt-outs, operator alerts job over every `IOperationalSignal`. See `docs/COMMUNICATIONS-MODULE.md`. |
+| Feedback | **tenant** (`feedback`) | UF-010 done | Anonymous ratings per event date by checked-in guests (`IAttendance`), one per guest per date via an HMAC dedupe hash (BR-027); no audit log and no auditing interceptors on purpose. Requires `Feedback:DedupeSecret` in Production. See `docs/FEEDBACK-MODULE.md`. |
+| Content | **tenant** (`content`) | UF-024 done | Articles (Markdown, tags, covers on disk under `Content:ImagesRootPath`) and Web Studio blocks (draft/publish JSON). See `docs/CONTENT-MODULE.md`. |
+| Analytics | none | UF-023 done | Event dashboard and public leaderboard composed from `ITicketingInsights`, `ICommerceInsights`, `IMusicInsights`, `IFeedbackInsights`, cached briefly. See `docs/ANALYTICS-MODULE.md`. |
 
 ### Boundaries
 
 - A module's projects reference **only** `src/Common/*` and their own module. Never another module (architecture tests in each `<Module>.Tests` enforce it).
-- Cross-module needs go through abstractions in `Common.Application` implemented by the owning module (e.g. `ICurrentTenant`, `ITenantDirectory`, `ITenantDatabaseConnection` are implemented by Tenancy). Integration events / inter-module requests in `Common.IntegrationEvents` / `Common.InterModuleRequests` are the planned async/sync channels; the PostgreSQL outbox per Spec 08 §9 is not wired yet.
+- Cross-module needs go through abstractions in `Common.Application` implemented by the owning module (e.g. `ICurrentTenant`, `ITenantDirectory`, `ITenantDatabaseConnection` are implemented by Tenancy). Async: integration events declared in `Common.IntegrationEvents`, written to the producing module's `<schema>.outbox_message` in the same `SaveChanges` (`db.AddIntegrationEvent`), drained per tenant by `OutboxDispatcher` and handled by `IIntegrationEventHandler<T>` (idempotent via the consumer's `processed_message`). Sync: interfaces in `Common.Application` implemented by the owning module (`IEventCatalog`, `IMobilePayments`, `ICustomerDirectory`, `IPaymentDestinations`, `ITicketHolders`, `IKraftDirectory`, `ICommerceBoards`, `IDisplayBoardSignal`). Music uses `IEventCatalog`, `ICustomerDirectory` and `ITicketHolders`. Communications uses `IAudienceDirectory` (Ticketing); Feedback uses `IAttendance` (Ticketing); Analytics uses the `*Insights` interfaces in `Common.Application.Analytics`. Operator alerts: a module that can fail in a way users feel registers an `IOperationalSignal` (`Common.Application.Operations`); counts only, no personal data.
 - Each module owns its schema; no cross-module joins.
+- Recurring per-tenant work implements `ITenantJob` and is registered with `AddTenantJob<T>(name, cron)`; Hangfire (PostgreSQL, `hangfire` schema in the platform DB) runs it once per active tenant via `ITenantScopeRunner`.
 
 ### Tenancy and databases (Spec 08 §5)
 
 - The **host name decides the tenant** (`TenantResolutionMiddleware`). A token's `tid` must match it. Nothing in a request body names a tenant.
 - **Platform-scoped** modules (Tenancy, Identity) use the platform connection string and migrate at start-up (`app.UseMigration<TContext>()`).
-- **Tenant-scoped** modules (Events, and Ticketing/Payments/Commerce later):
+- **Tenant-scoped** modules (Events, Ticketing, Payments, Commerce, Displays, Music, Communications, Feedback, Content):
   - Build their `DbContext` from `ITenantDatabaseConnection.GetConnectionString()` (the resolved tenant's DB).
   - Register a `ModuleDatabaseDescriptor(name, DatabaseScope.Tenant, ...)`, and add the same registration to the Migrator, so provisioning applies the schema to every tenant DB.
   - Never migrate at API start-up. The Migrator (`./scripts/migrate.ps1`) and the Development seeder (re-runs the idempotent initializer on every start) apply migrations.
@@ -162,9 +171,15 @@ dotnet run --project src/Bootstrapper/Api # Development: seeds the DEV tenant (l
 ./scripts/migrate.ps1                      # initialize-all: platform + every tenant DB
 ./scripts/migrate.ps1 -Command provision -TenantId <guid>
 ./scripts/verify-db.ps1
+./scripts/build.ps1 | ./scripts/test.ps1 -Postgres "<admin connection>"
+./scripts/publish.ps1                      # out/<stamp>/{api,migrator} for the server
+./scripts/deploy.ps1 -ReleaseSource <folder>   # on the server: backup, migrate, swap, health check (-Rollback <stamp>)
+./scripts/backup.ps1 | ./scripts/restore.ps1 -BackupFolder <folder> | ./scripts/install-backup-task.ps1
 ```
 
-Manual testing: `docs/IDENTITY-MANUAL-TESTING.md` and the Postman collections in `docs/postman/`. OTP codes are printed in the API console in Development (`DEVELOPMENT ONLY: OTP ...`).
+Note: `scripts/` and `appsettings*.json` are git-ignored (`.gitignore` lines `scripts/` and `appsettings*.json`), so these files are not in source control.
+
+Manual testing: `docs/IDENTITY-MANUAL-TESTING.md` and the Postman collections in `docs/postman/`. OTP codes are printed in the API console in Development (`DEVELOPMENT ONLY: OTP ...`). The Hangfire dashboard is at `/hangfire` in Development only (local requests).
 
 ---
 

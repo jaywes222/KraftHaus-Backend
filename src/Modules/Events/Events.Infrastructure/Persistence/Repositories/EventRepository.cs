@@ -10,16 +10,19 @@ internal sealed class EventRepository(EventsDbContext db) : IEventRepository
     public Task<Event?> FindAsync(EventId id, CancellationToken cancellationToken) =>
         WithGraph(db.Events)
             .TagWith(nameof(FindAsync))
+            .AsSplitQuery()
             .SingleOrDefaultAsync(x => x.Id == id, cancellationToken);
 
     public Task<Event?> FindForReadAsync(EventId id, CancellationToken cancellationToken) =>
         WithGraph(db.Events.AsNoTracking())
             .TagWith(nameof(FindForReadAsync))
+            .AsSplitQuery()
             .SingleOrDefaultAsync(x => x.Id == id, cancellationToken);
 
     public Task<Event?> FindBySlugForReadAsync(string slug, CancellationToken cancellationToken) =>
         WithGraph(db.Events.AsNoTracking())
             .TagWith(nameof(FindBySlugForReadAsync))
+            .AsSplitQuery()
             .SingleOrDefaultAsync(x => x.Slug == slug, cancellationToken);
 
     public Task<bool> SlugExistsAsync(string slug, EventId? except, CancellationToken cancellationToken) =>

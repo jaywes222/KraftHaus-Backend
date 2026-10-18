@@ -124,6 +124,12 @@ public sealed class EventsHttpTests(IdentityAuditApiFixture fixture)
         Assert.Equal(2, publicEvent.GetProperty("dates").GetArrayLength());
         Assert.Contains("parking", publicEvent.GetProperty("venue").GetProperty("directions").GetString(), StringComparison.Ordinal);
 
+        // The picker caps quantities and shows the hold time from the public policies.
+        var publicPolicies = publicEvent.GetProperty("policies");
+        Assert.Equal(8, publicPolicies.GetProperty("maxTicketsPerOrder").GetInt32());
+        Assert.Equal(10, publicPolicies.GetProperty("holdMinutes").GetInt32());
+        Assert.True(publicPolicies.GetProperty("lipaMdogoMdogoEnabled").GetBoolean());
+
         var publicRegular = publicEvent.GetProperty("dates")[0].GetProperty("tiers").EnumerateArray()
             .Single(x => x.GetProperty("id").GetGuid() == regular);
         Assert.True(publicRegular.GetProperty("onSale").GetBoolean());

@@ -12,6 +12,12 @@ public enum CaptchaProvider
 
 public class CaptchaOptions
 {
+    /// <summary>
+    ///     False when nothing in this deployment uses captcha. Only then may Production keep the Dummy provider:
+    ///     the production check guards a feature that is switched on, not a leftover registration.
+    /// </summary>
+    public bool Enabled { get; set; } = true;
+
     public required string BaseUrl { get; init; }
 
     public required string CaptchaEndpoint { get; init; }
@@ -61,7 +67,9 @@ public class CaptchaOptionsValidator : CustomValidator<CaptchaOptions>
         RuleFor(o => o.Provider)
             .Must((_, provider, context) => !context.IsProduction() || provider != CaptchaProvider.Dummy)
             .WithMessage("CaptchaOptions.Provider is 'Dummy' in Production. Dummy captcha always passes; " +
-                         "set Provider to 'ReCaptcha' (with real keys) before deploying.");
+                         "set Provider to 'ReCaptcha' (with real keys) before deploying, or set Enabled to false " +
+                         "when nothing uses captcha.")
+            .When(o => o.Enabled);
 
         RuleFor(o => o.AttemptTimeoutSeconds)
             .GreaterThan(0)

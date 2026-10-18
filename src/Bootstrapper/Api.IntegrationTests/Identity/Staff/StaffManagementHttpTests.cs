@@ -270,6 +270,65 @@ public sealed class StaffManagementHttpTests(IdentityAuditApiFixture fixture)
             IdentityAuditApiFixture.SecondTenantHost);
     }
 
+    [Fact]
+    public async Task StaffListShowsEveryoneWithARoleHereAndNobodyElse()
+    {
+        Assert.SkipUnless(fixture.IsConfigured, IdentityAuditApiFixture.SkipReason);
+
+        using var client = fixture.CreateClient();
+        var admin = await TenantAdminAsync(client);
+
+        // A Support member joins through an invitation; another person signs in but holds no role.
+        var inviteePhone = IdentityApi.NewKenyanPhone();
+        var invitationId = await InviteAsync(client, admin.AccessToken, inviteePhone, "Support");
+        var invitee = await IdentityApi.SignInAsync(client, fixture.OtpSender, inviteePhone);
+        await RequestInvitationOtpAsync(client, inviteePhone);
+        using (var accept = await IdentityApi.CallAsync(
+                   client,
+                   HttpMethod.Post,
+                   $"{Base}/staff/invitations/{invitationId}/accept",
+                   new { code = fixture.OtpSender.CodeFor(inviteePhone) }))
+        {
+            Assert.Equal(HttpStatusCode.OK, accept.StatusCode);
+        }
+
+        var bystander = await IdentityApi.SignInAsync(client, fixture.OtpSender);
+        await TenantAdminOnSecondTenantAsync(client);
+
+        using var response = await IdentityApi.CallAsync(client, HttpMethod.Get, $"{Base}/staff/members", accessToken: admin.AccessToken);
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+        var members = (await response.Content.ReadFromJsonAsync<JsonElement>()).Clone().EnumerateArray().ToList();
+
+        var adminRow = Assert.Single(members, x => x.GetProperty("userId").GetGuid() == admin.UserId);
+        Assert.Contains(adminRow.GetProperty("roles").EnumerateArray(), x => x.GetProperty("role").GetString() == "TenantAdmin");
+
+        var inviteeRow = Assert.Single(members, x => x.GetProperty("userId").GetGuid() == invitee.UserId);
+        Assert.Equal(invitee.Phone, inviteeRow.GetProperty("phone").GetString());
+        var support = Assert.Single(inviteeRow.GetProperty("roles").EnumerateArray());
+        Assert.Equal("Support", support.GetProperty("role").GetString());
+
+        Assert.DoesNotContain(members, x => x.GetProperty("userId").GetGuid() == bystander.UserId);
+
+        // Every listed role applies here: a tenant role names this tenant (tenant B's admin is not listed); a Kraft
+        // role belongs to a Kraft of this tenant, so its name resolved (other tests in the collection create Krafts).
+        Assert.All(
+            members.SelectMany(x => x.GetProperty("roles").EnumerateArray()),
+            role =>
+            {
+                if (role.GetProperty("scopeType").GetString() == "Kraft")
+                {
+                    Assert.False(string.IsNullOrEmpty(role.GetProperty("scopeName").GetString()));
+                    return;
+                }
+
+                Assert.Equal("Tenant", role.GetProperty("scopeType").GetString());
+                Assert.Equal(fixture.TenantId, role.GetProperty("scopeId").GetGuid());
+            });
+
+        // Without identity:users:view the list is refused.
+        await AssertStatusAsync(HttpStatusCode.Forbidden, client, HttpMethod.Get, $"{Base}/staff/members", null, bystander.AccessToken);
+    }
+
     private async Task<IdentityLogin> TenantAdminAsync(HttpClient client)
     {
         var login = await IdentityApi.SignInAsync(client, fixture.OtpSender);

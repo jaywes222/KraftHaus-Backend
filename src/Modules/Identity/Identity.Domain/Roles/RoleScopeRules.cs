@@ -17,7 +17,8 @@ public static class RoleScopeRules
 
             IdentityRole.TenantAdmin or
             IdentityRole.Finance or
-            IdentityRole.Support =>
+            IdentityRole.Support or
+            IdentityRole.Dj =>
                 scopeType == RoleScopeType.Tenant &&
                 scopeId.HasValue,
 

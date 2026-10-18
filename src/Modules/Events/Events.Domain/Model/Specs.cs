@@ -21,7 +21,8 @@ public sealed record PhaseSpec(
     Money Price,
     DateTimeOffset StartsAt,
     DateTimeOffset EndsAt,
-    int? Allocation);
+    int? Allocation,
+    bool EarlyAccess = false);
 
 /// <summary>Input for adding or changing a Couple / Gang group offer. The kind is fixed once created.</summary>
 public sealed record OfferSpec(

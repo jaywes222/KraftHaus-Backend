@@ -1,13 +1,18 @@
 using System.Diagnostics;
+using Api.IntegrationTests.Music;
+using Api.IntegrationTests.Ticketing;
+using Common.Application.Notifications;
 using Common.Domain.Tenancy;
 using Identity.Application.Abstractions;
 using Identity.Domain.Otp;
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.Mvc.Testing;
 using Microsoft.AspNetCore.TestHost;
-using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.DependencyInjection.Extensions;
+using Microsoft.Extensions.DependencyInjection;
+using Music.Application.Catalog;
 using Npgsql;
+using Payments.Application.Provider;
 using Tenancy.Application.Abstractions;
 using Tenancy.Domain.Common;
 using Tenancy.Domain.Tenants;
@@ -52,7 +57,16 @@ public sealed class IdentityAuditApiFixture : IAsyncLifetime
 
     public CapturingOtpSender OtpSender { get; } = new();
 
+    /// <summary>Every non-OTP SMS the host tried to send (waitlist confirmations, staff invitations).</summary>
+    public CapturingSmsGateway SmsGateway { get; } = new();
+
+    /// <summary>Stands in for PalPluss: records prompts and answers lookups with whatever a test scripts.</summary>
+    public ScriptedPaymentProvider PaymentProvider { get; } = new();
+
     public AdjustableClock Clock { get; } = new();
+
+    /// <summary>Stands in for MusicBrainz: a few known songs, no network.</summary>
+    public FakeMusicCatalog MusicCatalog { get; } = new();
 
     public Guid TenantId { get; private set; }
 
@@ -108,7 +122,7 @@ public sealed class IdentityAuditApiFixture : IAsyncLifetime
         };
         ActivitySource.AddActivityListener(_activityListener);
 
-        _factory = new IdentityAuditApiFactory(OtpSender, Clock);
+        _factory = new IdentityAuditApiFactory(OtpSender, SmsGateway, PaymentProvider, Clock, MusicCatalog);
 
         // Forces the host to start (and run module migrations) before any test executes.
         _factory.CreateClient().Dispose();
@@ -201,7 +215,10 @@ public sealed class IdentityAuditApiFixture : IAsyncLifetime
 
 public sealed class IdentityAuditApiFactory(
     CapturingOtpSender otpSender,
-    AdjustableClock clock)
+    CapturingSmsGateway smsGateway,
+    ScriptedPaymentProvider paymentProvider,
+    AdjustableClock clock,
+    FakeMusicCatalog musicCatalog)
     : WebApplicationFactory<Host.Program>
 {
     protected override void ConfigureWebHost(IWebHostBuilder builder)
@@ -214,9 +231,21 @@ public sealed class IdentityAuditApiFactory(
             services.RemoveAll<IOtpSender>();
             services.AddSingleton<IOtpSender>(otpSender);
 
+            // Capture SMS instead of handing them to the configured gateway.
+            services.RemoveAll<ISmsGateway>();
+            services.AddSingleton<ISmsGateway>(smsGateway);
+
+            // No network calls to PalPluss from tests.
+            services.RemoveAll<IPaymentProvider>();
+            services.AddSingleton<IPaymentProvider>(paymentProvider);
+
             // Lets tests step past the refresh-token grace window deterministically.
             services.RemoveAll<TimeProvider>();
             services.AddSingleton<TimeProvider>(clock);
+
+            // No network calls to MusicBrainz from tests.
+            services.RemoveAll<IMusicCatalog>();
+            services.AddSingleton<IMusicCatalog>(musicCatalog);
         });
     }
 }
@@ -246,6 +275,48 @@ public sealed class CapturingOtpSender : IOtpSender
         lock (_gate)
         {
             return _codes[normalizedDestination];
+        }
+    }
+}
+
+public sealed class CapturingSmsGateway : ISmsGateway
+{
+    private readonly List<SmsMessage> _messages = [];
+    private readonly Lock _gate = new();
+
+    /// <summary>When set, the next send throws (a provider outage) instead of being captured.</summary>
+    public bool FailNext { get; set; }
+
+    public Task SendAsync(SmsMessage message, CancellationToken cancellationToken)
+    {
+        lock (_gate)
+        {
+            if (FailNext)
+            {
+                FailNext = false;
+                throw new HttpRequestException("Simulated SMS provider outage.");
+            }
+
+            _messages.Add(message);
+        }
+
+        return Task.CompletedTask;
+    }
+
+    private int _receipts;
+
+    /// <summary>Like a real provider, hands back a message id (delivery reports quote it).</summary>
+    public async Task<SmsReceipt> SendWithReceiptAsync(SmsMessage message, CancellationToken cancellationToken)
+    {
+        await SendAsync(message, cancellationToken);
+        return new SmsReceipt($"cap-{Interlocked.Increment(ref _receipts)}");
+    }
+
+    public IReadOnlyList<SmsMessage> SentTo(string phone)
+    {
+        lock (_gate)
+        {
+            return [.. _messages.Where(x => x.PhoneNumber == phone)];
         }
     }
 }
